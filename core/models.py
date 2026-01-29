@@ -326,3 +326,23 @@ class ChartOfAccountsNode(models.Model):
 
     def __str__(self):
         return f"{self.number} – {self.name}"
+
+
+class Address(models.Model):
+    label = models.CharField(max_length=50, blank=True, help_text=_("e.g. Billing, Delivery"))
+    line1 = models.CharField(max_length=255)
+    line2 = models.CharField(max_length=255, blank=True)
+    postal_code = models.CharField(max_length=20, blank=True)
+    city = models.CharField(max_length=100, blank=True)
+    country = models.CharField(max_length=2, blank=True, help_text=_("ISO-2 country code"))
+
+    attention = models.CharField(max_length=255, blank=True)
+    phone = models.CharField(max_length=50, blank=True)
+    email = models.EmailField(blank=True)
+
+    class Meta:
+        ordering = ["country", "postal_code", "city", "line1"]
+
+    def __str__(self):
+        parts = [self.line1, self.postal_code, self.city, self.country]
+        return ", ".join([p for p in parts if p])
