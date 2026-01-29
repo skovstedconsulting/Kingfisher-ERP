@@ -1,13 +1,38 @@
-Vision
+Kingfisher-ERP
 
-My intention is to build a full-blown ERP system covering all essential business domains you would expect from a modern ERP platform.
+A developer-first, accounting-correct ERP system built with Python and Django, designed to be easy to deploy, easy to understand, and easy to extend.
 
-The roadmap is intentionally ambitious. Features will be built incrementally, with correctness, transparency, and extensibility prioritized over speed.
+This project aims to provide a full-blown ERP foundation without the complexity, opacity, or vendor lock-in of traditional ERP platforms.
 
-Scope & Feature Areas
+🔎 Why This Project Exists
 
-The system is designed to cover the following areas:
+Most ERP systems are:
 
+Expensive to customize
+
+Hard to deploy
+
+Opaque in their accounting logic
+
+Built around proprietary configuration layers
+
+This project takes a different approach:
+
+ERP as readable, modifiable application code — not a black box.
+
+🎯 Project Goals
+
+Provide a complete ERP domain model
+
+Be accounting-correct by design
+
+Keep the technical barrier low for people with ERP or accounting experience
+
+Prefer clarity over abstraction
+
+Enable best-of-breed integrations instead of all-in-one solutions
+
+🧩 Scope & Feature Areas
 Finance & Accounting
 
 General Ledger (GL)
@@ -64,7 +89,7 @@ Cost and revenue allocation
 
 Budget vs. actual tracking
 
-Reporting & BI
+Reporting & BI (via integrations)
 
 Financial statements
 
@@ -74,53 +99,139 @@ Exportable datasets
 
 API-first reporting access
 
-Technology & Philosophy
+🛠️ Technology Stack
 
-This project is built with Python and Django.
+Python
 
-The built-in Django admin interface is used as the default UI.
-It is intentionally kept as the primary interface so the system remains:
+Django
 
-Easy to deploy
+Django Admin (default UI)
 
-Easy to understand
+The system is intentionally built on boring, proven technology to maximize longevity and approachability.
 
-Easy to modify
+🧠 Why Django Admin (On Purpose)
 
-You are free—and encouraged—to build or integrate a more specialized UI if it better serves your business needs.
+The Django admin is used as the primary UI by design, not as a placeholder.
 
-Best-of-Breed Integrations
+Reasons:
+
+Zero frontend setup
+
+Extremely fast to extend
+
+Excellent CRUD ergonomics
+
+Familiar to a large developer base
+
+Encourages understanding of the data model
+
+For an ERP system, data correctness and visibility matter more than UI polish.
+
+If your business requires a different UI:
+
+Build one
+
+Integrate one
+
+Replace the admin entirely
+
+The system does not depend on the admin — it merely ships with a powerful default.
+
+🔌 Best-of-Breed Integrations
 
 This ERP does not try to do everything itself.
 
-Wherever possible, best-of-breed tools should be integrated instead of reinvented.
-That is why you will not find a built-in reporting or BI layer in this system.
+You will not find:
+
+Built-in BI dashboards
+
+Custom charting engines
+
+Heavy reporting UIs
 
 Instead, the system is designed to:
 
-Expose clean, well-structured data
+Expose clean, normalized data
 
-Be easy to connect to external reporting tools
+Offer API-first access
 
-Encourage the use of existing Django plugins or external BI platforms
+Work well with existing Django plugins and external BI tools
 
-Design Goals
+Use the best tool for the job.
 
-Keep the codebase as simple as possible
+🚫 Non-Goals
 
-Avoid unnecessary abstraction and magic
+This project explicitly does not aim to:
 
-Make the system approachable for people with an ERP or accounting background
+Be a turnkey ERP for non-technical users
 
-Prefer clarity over cleverness
+Compete with Odoo, SAP, or Dynamics feature-for-feature
 
-This is an ERP you are meant to read, understand, and modify—not configure blindly.
+Provide a polished end-user frontend
 
-Status
+Hide business logic behind configuration screens
 
-This project is under active development and should be considered foundational.
+Optimize for low-code or no-code customization
 
-Breaking changes are expected while the accounting core and domain models are being established.
+Replace modern BI platforms
 
-Best regards
+If you want:
+
+A drag-and-drop ERP
+
+A configuration-driven system
+
+A closed, opinionated workflow
+
+This project is probably not for you — and that’s okay.
+
+📦 Deployment Philosophy
+
+Simple local setup
+
+Works with standard databases
+
+No proprietary services required
+
+Suitable for self-hosting
+
+Deployment should feel like deploying a normal Django application, not an ERP installation project.
+
+🚧 Project Status
+
+This project is under active development.
+
+Expect:
+
+Incomplete modules
+
+Breaking changes
+
+Ongoing domain modeling
+
+Stability will come after the accounting and domain foundations are solid.
+
+🤝 Contributions
+
+Contributions are welcome — especially in areas like:
+
+Accounting models
+
+Sub-ledger design
+
+Multi-currency handling
+
+Performance vs. clarity trade-offs
+
+Clear code and clear reasoning matter more than cleverness.
+
+📌 Final Note
+
+This project exists to prove that:
+
+ERP systems do not have to be opaque, expensive, or inaccessible.
+
+They can be simple, correct, and open.
+
+Author
 Kresten Skovsted Buch
