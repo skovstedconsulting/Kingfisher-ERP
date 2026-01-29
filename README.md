@@ -134,6 +134,34 @@ Use the best tool for the job.
 
 Deployment should feel like deploying a **normal Django application**, not an ERP installation project.
 
+
+## 📥 Install from GitHub
+
+```bash
+git clone https://github.com/<your-org-or-user>/kingfisher-erp.git
+cd kingfisher-erp
+python -m venv .venv
+
+Windows (PowerShell)
+
+.venv\Scripts\Activate.ps1
+
+macOS / Linux
+
+source .venv/bin/activate
+
+Install dependencies and run the project:
+
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py runserver
+
+Open: http://127.0.0.1:8000/admin/
+
+Deployment is intentionally identical to a standard Django application.
+
+
 ---
 
 Best regards  
