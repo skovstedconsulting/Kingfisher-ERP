@@ -1,4 +1,6 @@
 from django.contrib import admin, messages
+from unfold.admin import ModelAdmin
+
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from .models import (
@@ -70,6 +72,7 @@ class JournalAdmin(admin.ModelAdmin):
 
         if ok:
             self.message_user(request, f"Posted {ok} journal(s).", level=messages.SUCCESS)
+
 
 @admin.register(IsoCountryCodes)
 class IsoCountryCodesAdmin(admin.ModelAdmin):
