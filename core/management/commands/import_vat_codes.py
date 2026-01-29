@@ -1,5 +1,7 @@
 import json
 from decimal import Decimal
+from pathlib import Path
+from django.conf import settings
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
@@ -22,7 +24,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("entity_id", type=int)
-        parser.add_argument("file", type=str)
+        parser.add_argument("file", type=str, help="Path to moms-koder JSON file",default=Path(settings.BASE_DIR) / "external_files" / "2026-01-01-Momskoder-Bruttoliste.json")
 
     @transaction.atomic
     def handle(self, entity_id, file, *args, **options):
