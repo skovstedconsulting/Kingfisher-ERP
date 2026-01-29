@@ -75,13 +75,9 @@ UNFOLD = {
                 ],
             },
             {
-                "title": _("Documents"),
+                "title": _("Purchases (AP)"),
                 "collapsible": True,
-                "items": [
-                    {"title": _("Sales offers"), "icon": "request_quote", "link": admin_changelist(CORE_APP_LABEL, "salesoffer")},
-                    {"title": _("Sales orders"), "icon": "shopping_cart", "link": admin_changelist(CORE_APP_LABEL, "salesorder")},
-                    {"title": _("Sales invoices"), "icon": "receipt", "link": admin_changelist(CORE_APP_LABEL, "salesinvoice")},
-                    {"title": _("Sales credit notes"), "icon": "assignment_return", "link": admin_changelist(CORE_APP_LABEL, "salescreditnote")},
+                "items": [                    
                     {"title": _("Purchase orders"), "icon": "inventory", "link": admin_changelist(CORE_APP_LABEL, "purchaseorder")},
                     {"title": _("Purchase invoices"), "icon": "description", "link": admin_changelist(CORE_APP_LABEL, "purchaseinvoice")},
                     {"title": _("Purchase credit notes"), "icon": "undo", "link": admin_changelist(CORE_APP_LABEL, "purchasecreditnote")},
@@ -102,6 +98,11 @@ UNFOLD = {
                 "items": [
                     {"title": _("Debtor groups"), "icon": "groups", "link": admin_changelist(CORE_APP_LABEL, "debtorgroup")},
                     {"title": _("Debtors"), "icon": "person", "link": admin_changelist(CORE_APP_LABEL, "debtor")},
+                    {"title": _("Sales offers"), "icon": "request_quote", "link": admin_changelist(CORE_APP_LABEL, "salesoffer")},
+                    {"title": _("Sales orders"), "icon": "shopping_cart", "link": admin_changelist(CORE_APP_LABEL, "salesorder")},
+                    {"title": _("Sales invoices"), "icon": "receipt", "link": admin_changelist(CORE_APP_LABEL, "salesinvoice")},
+                    {"title": _("Sales credit notes"), "icon": "assignment_return", "link": admin_changelist(CORE_APP_LABEL, "salescreditnote")},
+
                 ],
             },
             {
