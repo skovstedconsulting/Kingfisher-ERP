@@ -1,5 +1,6 @@
 from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
+from django.utils.translation import gettext_lazy as _
 from .models import (
     Entity,
     FiscalYear,
@@ -10,6 +11,13 @@ from .models import (
     IsoCurrencyCodes,    
     ChartOfAccountsTemplate, 
     ChartOfAccountsNode,
+    Address,
+    PaymentTerms,
+    DebtorGroup,
+    Debtor,
+    VatCode,
+    ItemGroup,
+    Item,
 
 )
 
@@ -83,3 +91,141 @@ class ChartOfAccountsTemplateAdmin(admin.ModelAdmin):
     list_display = ("name", "valid_from", "source_file")
     inlines = [ChartOfAccountsNodeInline]
 
+
+
+@admin.register(Address)
+class AddressAdmin(admin.ModelAdmin):
+    list_display = ("__str__", "label", "attention", "email", "phone", "country")
+    search_fields = ("label", "attention", "line1", "line2", "postal_code", "city", "email", "phone")
+    list_filter = ("country",)
+    ordering = ("country", "postal_code", "city", "line1")
+
+
+@admin.register(PaymentTerms)
+class PaymentTermsAdmin(admin.ModelAdmin):
+    list_display = ("entity", "code", "name", "days")
+    list_filter = ("entity",)
+    search_fields = ("code", "name")
+    ordering = ("entity", "code")
+    autocomplete_fields = ("entity",)
+
+
+@admin.register(VatCode)
+class VatCodeAdmin(admin.ModelAdmin):
+    list_display = ("entity", "code", "name", "rate")
+    list_filter = ("entity",)
+    search_fields = ("code", "name")
+    ordering = ("entity", "code")
+    autocomplete_fields = ("entity",)
+
+
+# -----------------------------
+# Debtors
+# -----------------------------
+
+@admin.register(DebtorGroup)
+class DebtorGroupAdmin(admin.ModelAdmin):
+    list_display = ("entity", "code", "name", "ar_account", "default_payment_terms")
+    list_filter = ("entity",)
+    search_fields = ("code", "name", "ar_account__number", "ar_account__name")
+    ordering = ("entity", "code")
+    autocomplete_fields = ("entity", "ar_account", "default_payment_terms")
+
+
+@admin.register(Debtor)
+class DebtorAdmin(admin.ModelAdmin):
+    list_display = ("entity", "number", "name", "group", "is_active", "email", "phone")
+    list_filter = ("entity", "group", "is_active")
+    search_fields = ("number", "name", "email", "phone", "group__code", "group__name")
+    ordering = ("entity", "number")
+
+    autocomplete_fields = (
+        "entity",
+        "group",
+        "payment_terms",
+        "billing_address",
+        "delivery_address",
+    )
+
+    fieldsets = (
+        (_("General"), {"fields": ("entity", "number", "name", "is_active", "group")}),
+        (_("Contact"), {"fields": ("email", "phone")}),
+        (_("Terms"), {"fields": ("payment_terms",)}),
+        (_("Addresses"), {"fields": ("billing_address", "delivery_address")}),
+    )
+
+    # If you go with AddressLink instead, comment out the address fields above
+    # and enable this inline:
+    # inlines = [AddressLinkInline]
+
+
+# -----------------------------
+# Items
+# -----------------------------
+
+@admin.register(ItemGroup)
+class ItemGroupAdmin(admin.ModelAdmin):
+    list_display = (
+        "entity",
+        "code",
+        "name",
+        "default_sales_account",
+        "default_vat_code",
+        "is_active",
+    )
+    list_filter = ("entity", "is_active")
+    search_fields = (
+        "code",
+        "name",
+        "default_sales_account__number",
+        "default_sales_account__name",
+        "default_vat_code__code",
+        "default_vat_code__name",
+    )
+    ordering = ("entity", "code")
+    autocomplete_fields = (
+        "entity",
+        "default_sales_account",
+        "default_cogs_account",
+        "default_inventory_account",
+        "default_vat_code",
+    )
+
+    fieldsets = (
+        (_("General"), {"fields": ("entity", "code", "name", "is_active")}),
+        (_("Defaults: Accounts"), {"fields": ("default_sales_account", "default_cogs_account", "default_inventory_account")}),
+        (_("Defaults: VAT"), {"fields": ("default_vat_code",)}),
+    )
+
+
+@admin.register(Item)
+class ItemAdmin(admin.ModelAdmin):
+    list_display = ("entity", "sku", "name", "group", "is_active", "effective_sales_account_display", "effective_vat_code_display")
+    list_filter = ("entity", "group", "is_active")
+    search_fields = ("sku", "name", "group__code", "group__name")
+    ordering = ("entity", "sku")
+
+    autocomplete_fields = (
+        "entity",
+        "group",
+        "sales_account",
+        "cogs_account",
+        "inventory_account",
+        "vat_code",
+    )
+
+    fieldsets = (
+        (_("General"), {"fields": ("entity", "sku", "name", "is_active", "group")}),
+        (_("Overrides: Accounts"), {"fields": ("sales_account", "cogs_account", "inventory_account")}),
+        (_("Overrides: VAT"), {"fields": ("vat_code",)}),
+    )
+
+    @admin.display(description=_("Sales acct (effective)"))
+    def effective_sales_account_display(self, obj):
+        acc = obj.effective_sales_account
+        return str(acc) if acc else ""
+
+    @admin.display(description=_("VAT (effective)"))
+    def effective_vat_code_display(self, obj):
+        vat = obj.effective_vat_code
+        return str(vat) if vat else ""
