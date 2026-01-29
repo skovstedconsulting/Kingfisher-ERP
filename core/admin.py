@@ -16,6 +16,7 @@ from .models import (
     DebtorGroup,
     Debtor,
     VatCode,
+    VatGroup,
     ItemGroup,
     Item,
 
@@ -118,6 +119,13 @@ class VatCodeAdmin(admin.ModelAdmin):
     ordering = ("entity", "code")
     autocomplete_fields = ("entity",)
 
+@admin.register(VatGroup)
+class VatGroupAdmin(admin.ModelAdmin):
+    list_display = ("entity", "code", "name")
+    list_filter = ("entity",)
+    search_fields = ("code", "name")
+    ordering = ("entity", "code")
+    autocomplete_fields = ("entity",)
 
 # -----------------------------
 # Debtors
