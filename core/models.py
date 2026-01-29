@@ -359,3 +359,30 @@ class PaymentTerms(models.Model):
 
     def __str__(self):
         return f"{self.code} ({self.days} days)"
+
+class DebtorGroup(models.Model):
+    entity = models.ForeignKey(Entity, on_delete=models.CASCADE, related_name="debtor_groups")
+    code = models.CharField(max_length=20)
+    name = models.CharField(max_length=100)
+
+    ar_account = models.ForeignKey(
+        Account,
+        on_delete=models.PROTECT,
+        related_name="debtor_groups_ar",
+        help_text=_("Accounts receivable control account for this group"),
+    )
+
+    default_payment_terms = models.ForeignKey(
+        PaymentTerms,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="debtor_groups_default",
+    )
+
+    class Meta:
+        unique_together = ("entity", "code")
+        ordering = ["code"]
+
+    def __str__(self):
+        return f"{self.code} – {self.name}"
