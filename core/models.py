@@ -346,3 +346,16 @@ class Address(models.Model):
     def __str__(self):
         parts = [self.line1, self.postal_code, self.city, self.country]
         return ", ".join([p for p in parts if p])
+
+class PaymentTerms(models.Model):
+    entity = models.ForeignKey(Entity, on_delete=models.CASCADE, related_name="payment_terms")
+    code = models.CharField(max_length=20)   # e.g. NET14, NET30
+    name = models.CharField(max_length=100)
+    days = models.PositiveIntegerField(default=14)
+
+    class Meta:
+        unique_together = ("entity", "code")
+        ordering = ["code"]
+
+    def __str__(self):
+        return f"{self.code} ({self.days} days)"
