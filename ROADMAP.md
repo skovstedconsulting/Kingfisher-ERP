@@ -18,6 +18,9 @@ Goal: Accounting correctness and auditability.
 - [ ] Multi-currency foundations
 - [ ] Period close & revaluation
 - [ ] Audit trail & document linkage
+- [x] Import job to get ISO currencies and ISO countries
+- [x] Import job to get Danish Government Chart of account of 2026
+- [ ] Import job to get dayly exchange rates
 
 ---
 
@@ -62,6 +65,8 @@ Goal: Ecosystem over monolith.
 - [ ] Stable public APIs
 - [ ] Import/export tooling
 - [ ] Integration examples (BI, banking, payroll)
+- [ ] Support for Microsoft Entra Id
+- [ ] Support for Import/Export digital documents
 
 ---
 
