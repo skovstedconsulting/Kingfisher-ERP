@@ -442,3 +442,153 @@ class Debtor(models.Model):
     def ar_account(self):
         # AR account comes from group (as requested)
         return self.group.ar_account
+
+class VatCode(models.Model):
+    entity = models.ForeignKey(Entity, on_delete=models.CASCADE, related_name="vat_codes")
+    code = models.CharField(max_length=20)        # e.g. DK_U25
+    name = models.CharField(max_length=100)
+    rate = models.DecimalField(max_digits=6, decimal_places=4)  # 0.2500
+
+    class Meta:
+        unique_together = ("entity", "code")
+
+    def __str__(self):
+        return f"{self.code} ({self.rate})"
+
+
+class Item(models.Model):
+    entity = models.ForeignKey(Entity, on_delete=models.CASCADE, related_name="items")
+
+    sku = models.CharField(max_length=50)
+    name = models.CharField(max_length=255)
+    is_active = models.BooleanField(default=True)
+
+    group = models.ForeignKey(
+        ItemGroup,
+        on_delete=models.PROTECT,
+        related_name="items",
+    )
+
+    # Optional overrides (leave blank to use group defaults)
+    sales_account = models.ForeignKey(
+        Account,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="items_sales",
+        help_text=_("Overrides group default sales account"),
+    )
+
+    cogs_account = models.ForeignKey(
+        Account,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="items_cogs",
+        help_text=_("Overrides group default COGS account"),
+    )
+
+    inventory_account = models.ForeignKey(
+        Account,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="items_inventory",
+        help_text=_("Overrides group default inventory account"),
+    )
+
+    vat_code = models.ForeignKey(
+        "VatCode",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="items_vat",
+        help_text=_("Overrides group default VAT code"),
+    )
+
+    class Meta:
+        unique_together = ("entity", "sku")
+        ordering = ["sku"]
+
+    def __str__(self):
+        return f"{self.sku} – {self.name}"
+
+    def clean(self):
+        if self.group and self.group.entity_id != self.entity_id:
+            raise ValidationError({"group": "Item group entity must match item entity."})
+
+        for field in ["sales_account", "cogs_account", "inventory_account"]:
+            acc = getattr(self, field)
+            if acc and acc.entity_id != self.entity_id:
+                raise ValidationError({field: "Account entity must match item entity."})
+
+        if self.vat_code and self.vat_code.entity_id != self.entity_id:
+            raise ValidationError({"vat_code": "VAT code entity must match item entity."})
+        
+    # Effective values used for posting
+    @property
+    def effective_sales_account(self):
+        return self.sales_account or self.group.default_sales_account
+
+    @property
+    def effective_cogs_account(self):
+        return self.cogs_account or self.group.default_cogs_account
+
+    @property
+    def effective_inventory_account(self):
+        return self.inventory_account or self.group.default_inventory_account
+
+    @property
+    def effective_vat_code(self):
+        return self.vat_code or self.group.default_vat_code
+
+
+class ItemGroup(models.Model):
+    entity = models.ForeignKey(Entity, on_delete=models.CASCADE, related_name="item_groups")
+
+    code = models.CharField(max_length=20)
+    name = models.CharField(max_length=100)
+
+    # Defaults used when Item doesn't override
+    default_sales_account = models.ForeignKey(
+        Account,
+        on_delete=models.PROTECT,
+        related_name="item_groups_sales",
+        help_text=_("Default revenue account for items in this group"),
+    )
+
+    default_cogs_account = models.ForeignKey(
+        Account,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="item_groups_cogs",
+        help_text=_("Default cost-of-goods-sold account (optional)"),
+    )
+
+    default_inventory_account = models.ForeignKey(
+        Account,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="item_groups_inventory",
+        help_text=_("Default inventory/stock account (optional)"),
+    )
+
+    default_vat_code = models.ForeignKey(
+        "VatCode",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="item_groups_default_vat",
+        help_text=_("Default VAT code for sales of items in this group"),
+    )
+
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ("entity", "code")
+        ordering = ["code"]
+
+    def __str__(self):
+        return f"{self.code} – {self.name}"
