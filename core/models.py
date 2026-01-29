@@ -2,6 +2,14 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 import uuid
 
+from decimal import Decimal
+from django.core.exceptions import ValidationError
+from django.db import transaction
+from django.db.models import Sum
+from django.utils.translation import gettext_lazy as _
+
+from django.db.models import Q, F
+from django.db.models.constraints import CheckConstraint
 
 class IsoCountryCodes(models.Model):
     """
@@ -137,9 +145,103 @@ class Journal(models.Model):
     reference = models.CharField(max_length=255, blank=True)
     posted = models.BooleanField(default=False)
 
+    CENT = Decimal("0.01")
+
+    def validate_for_posting(self):
+        """
+        Hard validation: must pass before posted=True can be set.
+        Raises ValidationError.
+        """
+        errors = {}
+
+        # 1) Fiscal period / year open
+        fy = (
+            FiscalYear.objects
+            .filter(entity=self.entity, start_date__lte=self.date, end_date__gte=self.date)
+            .order_by("-year")
+            .first()
+        )
+        if not fy:
+            errors["date"] = _("Journal date is not covered by any fiscal year.")
+        elif fy.is_closed:
+            errors["date"] = _("Fiscal year is closed for this journal date.")
+
+        # 2) Lines existence
+        lines_qs = self.lines.select_related("account")
+        if not lines_qs.exists():
+            errors["lines"] = _("Journal must have at least one line.")
+        else:
+            # 3) Line-level checks
+            line_errors = []
+            for idx, ln in enumerate(lines_qs.order_by("id"), start=1):
+                le = []
+
+                if ln.account.entity_id != self.entity_id:
+                    le.append(_("Line account entity does not match journal entity."))
+
+                if not ln.account.is_active:
+                    le.append(_("Account is inactive."))
+
+                if ln.debit < 0 or ln.credit < 0:
+                    le.append(_("Debit/Credit cannot be negative."))
+
+                if ln.debit > 0 and ln.credit > 0:
+                    le.append(_("A line cannot have both debit and credit."))
+
+                if ln.debit == 0 and ln.credit == 0:
+                    le.append(_("A line cannot be all zero."))
+
+                if le:
+                    line_errors.append({f"line_{idx}": le})
+
+            if line_errors:
+                # attach under "lines" so it shows as a group
+                errors["lines"] = line_errors
+
+            # 4) Double-entry balance
+            totals = lines_qs.aggregate(
+                debit_sum=Sum("debit"),
+                credit_sum=Sum("credit"),
+            )
+            debit_sum = (totals["debit_sum"] or Decimal("0")).quantize(self.CENT)
+            credit_sum = (totals["credit_sum"] or Decimal("0")).quantize(self.CENT)
+
+            if debit_sum != credit_sum:
+                errors["__all__"] = _(
+                    f"Journal is not balanced: debit {debit_sum} != credit {credit_sum}."
+                )
+
+        if errors:
+            raise ValidationError(errors)
+
+    @transaction.atomic
+    def post(self, *, by_user=None):
+        j = Journal.objects.select_for_update().get(pk=self.pk)
+        if j.posted:
+            return
+
+        list(j.lines.select_for_update().all())
+        j.validate_for_posting()
+
+        Journal.objects.filter(pk=j.pk, posted=False).update(posted=True)
+
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            old = Journal.objects.only("posted").get(pk=self.pk)
+            # If someone tries to flip posted via normal save, reject it
+            if not old.posted and self.posted:
+                raise ValidationError("Use Journal.post() to post a journal.")
+            # If already posted, block edits (optional strictness)
+            if old.posted:
+                raise ValidationError("Cannot modify a posted journal.")
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"Journal {self.id} ({self.date})"
 
+
+from django.core.exceptions import ValidationError
 
 class JournalLine(models.Model):
     journal = models.ForeignKey(Journal, on_delete=models.CASCADE, related_name="lines")
@@ -148,10 +250,41 @@ class JournalLine(models.Model):
     debit = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     credit = models.DecimalField(max_digits=14, decimal_places=2, default=0)
 
-    def __str__(self):
-        return f"{self.account} D:{self.debit} C:{self.credit}"
+    def clean(self):
+        # this runs in ModelForms (admin) and can be invoked manually too
+        if self.journal_id and self.journal.posted:
+            raise ValidationError(_("Cannot modify lines on a posted journal."))
 
+        if self.debit < 0 or self.credit < 0:
+            raise ValidationError(_("Debit/Credit cannot be negative."))
 
+        if self.debit and self.credit:
+            raise ValidationError(_("A line cannot have both debit and credit."))
+
+        if self.debit == 0 and self.credit == 0:
+            raise ValidationError(_("A line cannot be all zero."))
+
+    def save(self, *args, **kwargs):
+        if self.journal_id:
+            # hard stop even outside forms
+            Journal.objects.only("posted").get(pk=self.journal_id)  # ensure exists
+            if self.journal.posted:
+                raise ValidationError("Cannot save JournalLine on a posted journal.")
+        return super().save(*args, **kwargs)
+
+class Meta:
+        constraints = [
+            # Debit and credit must be non-negative
+            CheckConstraint(
+                condition=Q(debit__gte=0) & Q(credit__gte=0),
+                name="jl_non_negative",
+            ),
+            # Cannot have both debit and credit on the same line
+            CheckConstraint(
+                condition=Q(debit=0) | Q(credit=0),
+                name="jl_not_both_sides",
+            ),
+        ]
 class ChartOfAccountsTemplate(models.Model):
     """
     Metadata container for imported Standardkontoplan documents.

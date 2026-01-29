@@ -11,7 +11,7 @@ Goal: Accounting correctness and auditability.
 
 - [x] Chart of Accounts
 - [ ] General Ledger posting engine
-- [ ] Double-entry validation
+- [x] Double-entry validation
 - [ ] Accounts Receivable (open items)
 - [ ] Accounts Payable (open items)
 - [ ] VAT / tax model
@@ -39,7 +39,16 @@ Goal: Operational flows that feed accounting.
 
 ---
 
-## Phase 3 — Inventory
+## Phase 3 — Banking
+
+Goal: Handle and reconsile bank accounts.
+
+- [ ] Bank accounts, bank transactions
+- [ ] Import transactions
+- [ ] Reconsile bankaccounts
+
+---
+## Phase 4 — Inventory
 
 Goal: Stock correctness, not just quantities.
 
@@ -50,7 +59,7 @@ Goal: Stock correctness, not just quantities.
 
 ---
 
-## Phase 4 — Projects & Cost Control
+## Phase 5 — Projects & Cost Control
 
 Goal: Project-based accounting.
 
@@ -60,7 +69,7 @@ Goal: Project-based accounting.
 
 ---
 
-## Phase 5 — Integrations & APIs
+## Phase 6 — Integrations & APIs
 
 Goal: Ecosystem over monolith.
 
@@ -72,7 +81,7 @@ Goal: Ecosystem over monolith.
 
 ---
 
-## Phase 6 — UI & Experience (Optional)
+## Phase 7 — UI & Experience (Optional)
 
 Goal: Alternative UIs beyond Django Admin.
 

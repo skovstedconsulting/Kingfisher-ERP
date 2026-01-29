@@ -1,4 +1,5 @@
-from django.contrib import admin
+from django.contrib import admin, messages
+from django.core.exceptions import ValidationError
 from .models import (
     Entity,
     FiscalYear,
@@ -39,14 +40,27 @@ class JournalLineInline(admin.TabularInline):
     model = JournalLine
     extra = 1
 
-
 @admin.register(Journal)
 class JournalAdmin(admin.ModelAdmin):
     list_display = ("id", "entity", "date", "posted")
     list_filter = ("entity", "posted")
-    date_hierarchy = "date"
-    inlines = [JournalLineInline]
+    inlines = [JournalLineInline]  # if you have one
+    readonly_fields = ("posted",)  # IMPORTANT: prevent toggling posted in the form
+    actions = ["post_selected"]
 
+    @admin.action(description="Post selected journals")
+    def post_selected(self, request, queryset):
+        ok, failed = 0, 0
+        for j in queryset:
+            try:
+                j.post(by_user=request.user)  # your posting method with validation
+                ok += 1
+            except ValidationError as e:
+                failed += 1
+                self.message_user(request, f"Journal {j.pk} failed: {e}", level=messages.ERROR)
+
+        if ok:
+            self.message_user(request, f"Posted {ok} journal(s).", level=messages.SUCCESS)
 
 @admin.register(IsoCountryCodes)
 class IsoCountryCodesAdmin(admin.ModelAdmin):
