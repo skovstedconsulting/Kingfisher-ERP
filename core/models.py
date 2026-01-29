@@ -6,9 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Q, F, Sum
 from django.db.models.constraints import CheckConstraint
-
 from django.utils import timezone
-
 from config import settings
 
 class IsoCountryCodes(models.Model):
@@ -38,7 +36,6 @@ class IsoCountryCodes(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.code})"
-
 
 class IsoCurrencyCodes(models.Model):
     """
@@ -71,7 +68,6 @@ class IsoCurrencyCodes(models.Model):
     def __str__(self):
         return f"{self.code} – {self.name}"
 
-
 class Entity(models.Model):
     """
     Legal or organizational entity (company).
@@ -91,13 +87,34 @@ class Entity(models.Model):
         "core.Account", null=True, blank=True, on_delete=models.PROTECT, related_name="+"
     )
 
+    default_series_journal = models.ForeignKey(
+        "core.NumberSeries", null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    default_series_debtor = models.ForeignKey(
+        "core.NumberSeries", null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    default_series_creditor = models.ForeignKey(
+        "core.NumberSeries", null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    default_series_item = models.ForeignKey(
+        "core.NumberSeries", null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+
+    # Document type defaults
+    default_series_sales_offer = models.ForeignKey("core.NumberSeries", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    default_series_sales_order = models.ForeignKey("core.NumberSeries", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    default_series_sales_invoice = models.ForeignKey("core.NumberSeries", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    default_series_sales_credit_note = models.ForeignKey("core.NumberSeries", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    default_series_purchase_order = models.ForeignKey("core.NumberSeries", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    default_series_purchase_invoice = models.ForeignKey("core.NumberSeries", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    default_series_purchase_credit_note = models.ForeignKey("core.NumberSeries", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+
     class Meta:
         verbose_name = _("Entity")
         verbose_name_plural = _("Entities")
 
     def __str__(self):
         return self.name
-
 
 class FiscalYear(models.Model):
     entity = models.ForeignKey(Entity, on_delete=models.CASCADE)
@@ -112,7 +129,6 @@ class FiscalYear(models.Model):
 
     def __str__(self):
         return f"{self.entity} {self.year}"
-
 
 class Account(models.Model):
     class AccountType(models.TextChoices):
@@ -142,7 +158,6 @@ class Account(models.Model):
 
     def __str__(self):
         return f"{self.number} – {self.name}"
-
 
 class Journal(models.Model):
     entity = models.ForeignKey(Entity, on_delete=models.CASCADE)
@@ -240,6 +255,13 @@ class Journal(models.Model):
             # If already posted, block edits (optional strictness)
             if old.posted:
                 raise ValidationError("Cannot modify a posted journal.")
+        
+        if not self.pk and not self.number:
+            series = self.entity.default_series_journal
+            if not series:
+                raise ValidationError("No journal number series configured on entity.")
+            self.number = series.allocate()
+
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -288,7 +310,6 @@ class JournalLine(models.Model):
             ),
         ]
 
-
 class ChartOfAccountsTemplate(models.Model):
     """
     Metadata container for imported Standardkontoplan documents.
@@ -305,7 +326,6 @@ class ChartOfAccountsTemplate(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.valid_from or 'n/a'})"
-
 
 class ChartOfAccountsNode(models.Model):
     """
@@ -330,7 +350,6 @@ class ChartOfAccountsNode(models.Model):
 
     def __str__(self):
         return f"{self.number} – {self.name}"
-
 
 class Address(models.Model):
     label = models.CharField(max_length=50, blank=True, help_text=_("e.g. Billing, Delivery"))
@@ -382,6 +401,10 @@ class DebtorGroup(models.Model):
         null=True,
         blank=True,
         related_name="debtor_groups_default",
+    )
+    number_series = models.ForeignKey(
+        "core.NumberSeries", null=True, blank=True, on_delete=models.PROTECT, related_name="+",
+        help_text=_("Override number series for debtors in this group")
     )
 
     class Meta:
@@ -435,6 +458,15 @@ class Debtor(models.Model):
         unique_together = ("entity", "number")
         ordering = ["number"]
 
+
+    def save(self, *args, **kwargs):
+        if not self.pk and not self.number:
+            series = self.group.number_series or self.entity.default_series_debtor
+            if not series:
+                raise ValidationError("No debtor number series configured (group or entity).")
+            self.number = series.allocate()
+        super().save(*args, **kwargs)
+    
     def __str__(self):
         return f"{self.number} – {self.name}"
 
@@ -470,7 +502,6 @@ class VatGroup(models.Model):
 
     def __str__(self):
         return self.name
-
 
 class VatCode(models.Model):
     class VatType(models.TextChoices):
@@ -554,7 +585,6 @@ class VatCode(models.Model):
     def __str__(self):
         return f"{self.code} – {self.name}"
 
-
 class ItemGroup(models.Model):
     entity = models.ForeignKey(Entity, on_delete=models.CASCADE, related_name="item_groups")
 
@@ -595,7 +625,10 @@ class ItemGroup(models.Model):
         related_name="item_groups_default_vat",
         help_text=_("Default VAT code for sales of items in this group"),
     )
-
+    number_series = models.ForeignKey(
+        "core.NumberSeries", null=True, blank=True, on_delete=models.PROTECT, related_name="+",
+        help_text=_("Override number series for items in this group")
+    )
     is_active = models.BooleanField(default=True)
 
     class Meta:
@@ -663,6 +696,14 @@ class Item(models.Model):
     def __str__(self):
         return f"{self.sku} – {self.name}"
 
+    def save(self, *args, **kwargs):
+        if not self.pk and not self.sku:
+            series = self.group.number_series or self.entity.default_series_item
+            if not series:
+                raise ValidationError("No item number series configured (group or entity).")
+            self.sku = series.allocate()
+        super().save(*args, **kwargs)
+    
     def clean(self):
         if self.group and self.group.entity_id != self.entity_id:
             raise ValidationError({"group": "Item group entity must match item entity."})
@@ -737,7 +778,6 @@ class DocumentStatus(models.Model):
 
     def __str__(self):
         return f"{self.entity} {self.doc_type}: {self.code} ({self.name})"
-
 
 class Document(models.Model):
     """
@@ -817,9 +857,8 @@ class Document(models.Model):
                 raise ValidationError({"status": _("Status must belong to the same document type.")})
 
     def save(self, *args, **kwargs):
-        # ensure clean() runs when saving outside forms
         self.full_clean()
-        # Auto-assign default status if missing
+
         if not self.status_id:
             default_status = (
                 DocumentStatus.objects
@@ -829,7 +868,20 @@ class Document(models.Model):
             )
             if default_status:
                 self.status = default_status
+
         super().save(*args, **kwargs)
+
+    def _default_series_for_doc_type(self):
+        e = self.entity
+        return {
+            self.DocumentType.SALES_OFFER: e.default_series_sales_offer,
+            self.DocumentType.SALES_ORDER: e.default_series_sales_order,
+            self.DocumentType.SALES_INVOICE: e.default_series_sales_invoice,
+            self.DocumentType.SALES_CREDIT_NOTE: e.default_series_sales_credit_note,
+            self.DocumentType.PURCHASE_ORDER: e.default_series_purchase_order,
+            self.DocumentType.PURCHASE_INVOICE: e.default_series_purchase_invoice,
+            self.DocumentType.PURCHASE_CREDIT_NOTE: e.default_series_purchase_credit_note,
+        }.get(self.doc_type)
 
     def _get_ar_account(self):
         if not self.debtor_id:
@@ -888,6 +940,14 @@ class Document(models.Model):
         # Lock document row to prevent double posting in concurrency
         doc = Document.objects.select_for_update().get(pk=self.pk)
         doc._assert_can_post()
+
+        # Allocate number ONLY now (avoids gaps)
+        if not doc.number:
+            series = doc._default_series_for_doc_type()
+            if not series:
+                raise ValidationError(f"No number series configured for {doc.doc_type}.")
+            doc.number = series.allocate()
+            doc.save(update_fields=["number"])
 
         # Build journal
         from core.models import Journal, JournalLine  # adjust import to your module layout
@@ -999,6 +1059,7 @@ class Document(models.Model):
 
         return j
 
+
     @property
     def is_locked(self):
         return bool(self.status_id and self.status.is_final)
@@ -1007,6 +1068,7 @@ class Document(models.Model):
         return f"{self.get_doc_type_display()} {self.number or self.pk}"
 
 class DocumentLine(models.Model):
+
     document = models.ForeignKey("core.Document", on_delete=models.CASCADE, related_name="lines")
 
     line_no = models.PositiveIntegerField(default=1)
@@ -1043,3 +1105,63 @@ class DocumentLine(models.Model):
 
     def __str__(self):
         return f"{self.document} #{self.line_no}"
+ 
+class NumberSeries(models.Model):
+    class Purpose(models.TextChoices):
+        JOURNAL = "JOURNAL", _("Journal")
+        DEBTOR = "DEBTOR", _("Debtor")
+        CREDITOR = "CREDITOR", _("Creditor")
+        ITEM = "ITEM", _("Item")
+
+        SALES_OFFER = "SALES_OFFER", _("Sales offer")
+        SALES_ORDER = "SALES_ORDER", _("Sales order")
+        SALES_INVOICE = "SALES_INVOICE", _("Sales invoice")
+        SALES_CREDIT_NOTE = "SALES_CREDIT_NOTE", _("Sales credit note")
+
+        PURCHASE_ORDER = "PURCHASE_ORDER", _("Purchase order")
+        PURCHASE_INVOICE = "PURCHASE_INVOICE", _("Purchase invoice")
+        PURCHASE_CREDIT_NOTE = "PURCHASE_CREDIT_NOTE", _("Purchase credit note")
+
+    entity = models.ForeignKey("core.Entity", on_delete=models.CASCADE, related_name="number_series")
+    code = models.CharField(max_length=30)  # e.g. SI, SO, DEB, ITEM
+    name = models.CharField(max_length=100)
+    purpose = models.CharField(max_length=40, choices=Purpose.choices)
+
+    prefix = models.CharField(max_length=20, blank=True, default="")
+    suffix = models.CharField(max_length=20, blank=True, default="")
+    padding = models.PositiveSmallIntegerField(default=0)  # 5 => 00042
+
+    next_number = models.PositiveIntegerField(default=1)
+    increment = models.PositiveIntegerField(default=1)
+
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = (("entity", "code"),)
+        indexes = [models.Index(fields=["entity", "purpose", "is_active"])]
+
+    def __str__(self):
+        return f"{self.entity} {self.code} ({self.purpose})"
+
+    def format_number(self, n: int) -> str:
+        core = str(n).zfill(self.padding) if self.padding else str(n)
+        return f"{self.prefix}{core}{self.suffix}"
+
+    @transaction.atomic
+    def allocate(self) -> str:
+        """
+        Concurrency-safe allocator:
+        - locks this series row
+        - returns the formatted number
+        - increments next_number
+        """
+        s = NumberSeries.objects.select_for_update().get(pk=self.pk)
+
+        if not s.is_active:
+            raise ValidationError(_("Number series is inactive."))
+
+        n = s.next_number
+        s.next_number = n + s.increment
+        s.save(update_fields=["next_number"])
+
+        return s.format_number(n)

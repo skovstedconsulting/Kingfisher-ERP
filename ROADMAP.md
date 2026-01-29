@@ -22,6 +22,7 @@ Goal: Accounting correctness and auditability.
 - [x] Import job to get Danish Government Chart of account of 2026
 - [ ] Import job to get dayly exchange rates
 - [ ] Notes and attachments
+- [x] Number Series
 
 ---
 
@@ -31,11 +32,13 @@ Goal: Operational flows that feed accounting.
 
 - [X] Customers, Customer Groups
 - [ ] Vendors, Vendor Groups
-- [ ] Orders, invoices, credit notes
+- [x] Orders, invoices, credit notes
 - [ ] Payment allocation & settlement
-- [ ] Purchase orders
+- [x] Purchase orders
 - [ ] Goods receipt
 - [ ] Invoice matching
+- [ ] Pricelist
+- [ ] Pricelist nesting
 
 ---
 

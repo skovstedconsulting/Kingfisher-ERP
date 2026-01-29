@@ -26,15 +26,50 @@ from .models import (
     DocumentStatus,
     Document,
     DocumentLine,
+    NumberSeries, 
 )
 
-
 @admin.register(Entity)
-class EntityAdmin(admin.ModelAdmin):
-    list_display = ("id","name", "country", "currency", "is_active")
+class EntityAdmin(ModelAdmin):
+    list_display = ("id", "name", "country", "currency", "is_active")
     list_filter = ("country", "currency", "is_active")
     search_fields = ("name", "registration_no")
 
+    fieldsets = (
+        (_("General"), {"fields": ("name", "registration_no", "country", "currency", "is_active")}),
+        (_("Finance defaults"), {"fields": ("default_ap_account",)}),
+        (_("Number series"), {
+            "fields": (
+                "default_series_journal",
+                "default_series_debtor",
+                "default_series_creditor",
+                "default_series_item",
+                "default_series_sales_offer",
+                "default_series_sales_order",
+                "default_series_sales_invoice",
+                "default_series_sales_credit_note",
+                "default_series_purchase_order",
+                "default_series_purchase_invoice",
+                "default_series_purchase_credit_note",
+            )
+        }),
+    )
+
+    autocomplete_fields = (
+        "country", "currency",
+        "default_ap_account",
+        "default_series_journal",
+        "default_series_debtor",
+        "default_series_creditor",
+        "default_series_item",
+        "default_series_sales_offer",
+        "default_series_sales_order",
+        "default_series_sales_invoice",
+        "default_series_sales_credit_note",
+        "default_series_purchase_order",
+        "default_series_purchase_invoice",
+        "default_series_purchase_credit_note",
+    )
 
 @admin.register(FiscalYear)
 class FiscalYearAdmin(admin.ModelAdmin):
@@ -138,13 +173,6 @@ class VatGroupAdmin(admin.ModelAdmin):
 # Debtors
 # -----------------------------
 
-@admin.register(DebtorGroup)
-class DebtorGroupAdmin(admin.ModelAdmin):
-    list_display = ("entity", "code", "name", "ar_account", "default_payment_terms")
-    list_filter = ("entity",)
-    search_fields = ("code", "name", "ar_account__number", "ar_account__name")
-    ordering = ("entity", "code")
-    autocomplete_fields = ("entity", "ar_account", "default_payment_terms")
 
 
 @admin.register(Debtor)
@@ -186,6 +214,7 @@ class ItemGroupAdmin(admin.ModelAdmin):
         "name",
         "default_sales_account",
         "default_vat_code",
+        "number_series",
         "is_active",
     )
     list_filter = ("entity", "is_active")
@@ -204,13 +233,18 @@ class ItemGroupAdmin(admin.ModelAdmin):
         "default_cogs_account",
         "default_inventory_account",
         "default_vat_code",
+        "number_series",
     )
 
     fieldsets = (
         (_("General"), {"fields": ("entity", "code", "name", "is_active")}),
         (_("Defaults: Accounts"), {"fields": ("default_sales_account", "default_cogs_account", "default_inventory_account")}),
         (_("Defaults: VAT"), {"fields": ("default_vat_code",)}),
+        (_("Defaults: Numbering"), {"fields": ("number_series",)}),
     )
+
+
+
 
 
 @admin.register(Item)
@@ -293,6 +327,12 @@ class BaseDocumentAdmin(ModelAdmin):
                 field.queryset = field.queryset.filter(doc_type=doc_type, is_active=True)
         return field
 
+    def get_readonly_fields(self, request, obj=None):
+        ro = list(super().get_readonly_fields(request, obj))
+        if obj and obj.number:
+            ro.append("number")
+        return ro
+
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         doc_type = getattr(self, "DOC_TYPE", None)
@@ -358,3 +398,33 @@ class PurchaseInvoiceAdmin(BaseDocumentAdmin):
 @admin.register(PurchaseCreditNote)
 class PurchaseCreditNoteAdmin(BaseDocumentAdmin):
     DOC_TYPE = Document.DocumentType.PURCHASE_CREDIT_NOTE
+
+
+
+
+
+@admin.register(NumberSeries)
+class NumberSeriesAdmin(ModelAdmin):
+    list_display = ("entity", "code", "name", "purpose", "is_active", "next_number", "increment", "prefix", "suffix", "padding")
+    list_filter = ("entity", "purpose", "is_active")
+    search_fields = ("code", "name")
+    ordering = ("entity", "purpose", "code")
+    autocomplete_fields = ("entity",)
+
+
+
+
+@admin.register(DebtorGroup)
+class DebtorGroupAdmin(ModelAdmin):
+    list_display = ("entity", "code", "name", "ar_account", "default_payment_terms", "number_series")
+    list_filter = ("entity",)
+    search_fields = ("code", "name", "ar_account__number", "ar_account__name")
+    ordering = ("entity", "code")
+    autocomplete_fields = ("entity", "ar_account", "default_payment_terms", "number_series")
+
+    fieldsets = (
+        (_("General"), {"fields": ("entity", "code", "name")}),
+        (_("Accounting"), {"fields": ("ar_account",)}),
+        (_("Defaults"), {"fields": ("default_payment_terms", "number_series")}),
+    )
+
