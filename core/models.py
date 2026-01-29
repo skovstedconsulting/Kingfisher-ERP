@@ -483,6 +483,7 @@ class VatCode(models.Model):
         VatGroup,
         on_delete=models.PROTECT,
         related_name="vat_codes",
+        default=None,
     )
 
     # Core identifiers
@@ -495,6 +496,7 @@ class VatCode(models.Model):
     vat_type = models.CharField(
         max_length=10,
         choices=VatType.choices,
+        default=None,
     )
 
     # Rates
