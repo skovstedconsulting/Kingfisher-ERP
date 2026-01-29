@@ -443,17 +443,103 @@ class Debtor(models.Model):
         # AR account comes from group (as requested)
         return self.group.ar_account
 
-class VatCode(models.Model):
-    entity = models.ForeignKey(Entity, on_delete=models.CASCADE, related_name="vat_codes")
-    code = models.CharField(max_length=20)        # e.g. DK_U25
-    name = models.CharField(max_length=100)
-    rate = models.DecimalField(max_digits=6, decimal_places=4)  # 0.2500
+class VatGroup(models.Model):
+    entity = models.ForeignKey(
+        Entity,
+        on_delete=models.CASCADE,
+        related_name="vat_groups",
+    )
+
+    code = models.CharField(
+        max_length=50,
+        help_text="Internal group code (derived or slugified)",
+    )
+
+    name = models.CharField(
+        max_length=255,
+        help_text="Momsgruppe (e.g. 'Salg', 'Køb fra EU-lande')",
+    )
 
     class Meta:
         unique_together = ("entity", "code")
+        ordering = ["code"]
 
     def __str__(self):
-        return f"{self.code} ({self.rate})"
+        return self.name
+
+
+class VatCode(models.Model):
+    class VatType(models.TextChoices):
+        SALE = "SALE", "Salg"
+        PURCHASE = "PURCHASE", "Køb"
+
+    entity = models.ForeignKey(
+        Entity,
+        on_delete=models.CASCADE,
+        related_name="vat_codes",
+    )
+
+    group = models.ForeignKey(
+        VatGroup,
+        on_delete=models.PROTECT,
+        related_name="vat_codes",
+    )
+
+    # Core identifiers
+    code = models.CharField(max_length=20)              # momskode NY (preferred)
+    legacy_code = models.CharField(max_length=20, blank=True)  # momskode (old)
+
+    name = models.CharField(max_length=255)             # overskrift
+    description = models.TextField(blank=True)          # vejledning
+
+    vat_type = models.CharField(
+        max_length=10,
+        choices=VatType.choices,
+    )
+
+    # Rates
+    rate = models.DecimalField(
+        max_digits=6,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        help_text="VAT rate (e.g. 0.2500 for 25%)",
+    )
+
+    deduction_rate = models.DecimalField(
+        max_digits=6,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        help_text="Deduction rate (1.0 = 100%, 0.6666 = 66.66%)",
+    )
+
+    deduction_method = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Skøn, Pro rata, Arealfordeling, Sektor, etc.",
+    )
+
+    # Reporting
+    reporting_text = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Momsangivelse / reporting description",
+    )
+
+    # Applicability flags (normalized from the 1–5 columns)
+    dk_only = models.BooleanField(default=False)
+    dk_mixed = models.BooleanField(default=False)
+    international = models.BooleanField(default=False)
+    international_mixed = models.BooleanField(default=False)
+    special_scheme = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ("entity", "code")
+        ordering = ["group__code", "code"]
+
+    def __str__(self):
+        return f"{self.code} – {self.name}"
 
 
 class ItemGroup(models.Model):
