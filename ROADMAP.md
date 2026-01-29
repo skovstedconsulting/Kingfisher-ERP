@@ -21,6 +21,8 @@ Goal: Accounting correctness and auditability.
 - [x] Import job to get ISO currencies and ISO countries
 - [x] Import job to get Danish Government Chart of account of 2026
 - [ ] Import job to get dayly exchange rates
+- [ ] Bank reconciliation
+- [ ] Notes and attachments
 
 ---
 
