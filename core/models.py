@@ -1,15 +1,15 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 import uuid
-
 from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import Sum
-from django.utils.translation import gettext_lazy as _
-
-from django.db.models import Q, F
+from django.db.models import Q, F, Sum
 from django.db.models.constraints import CheckConstraint
+
+from django.utils import timezone
+
+from config import settings
 
 class IsoCountryCodes(models.Model):
     """
@@ -85,6 +85,11 @@ class Entity(models.Model):
     currency = models.ForeignKey(IsoCurrencyCodes, on_delete=models.PROTECT, related_name="entities")
 
     is_active = models.BooleanField(default=True)
+
+    #Until you have Supplier/Vendor groups, add on Entity:
+    default_ap_account = models.ForeignKey(
+        "core.Account", null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
 
     class Meta:
         verbose_name = _("Entity")
@@ -240,9 +245,6 @@ class Journal(models.Model):
     def __str__(self):
         return f"Journal {self.id} ({self.date})"
 
-
-from django.core.exceptions import ValidationError
-
 class JournalLine(models.Model):
     journal = models.ForeignKey(Journal, on_delete=models.CASCADE, related_name="lines")
     account = models.ForeignKey(Account, on_delete=models.PROTECT)
@@ -272,7 +274,7 @@ class JournalLine(models.Model):
                 raise ValidationError("Cannot save JournalLine on a posted journal.")
         return super().save(*args, **kwargs)
 
-class Meta:
+    class Meta:
         constraints = [
             # Debit and credit must be non-negative
             CheckConstraint(
@@ -285,6 +287,8 @@ class Meta:
                 name="jl_not_both_sides",
             ),
         ]
+
+
 class ChartOfAccountsTemplate(models.Model):
     """
     Metadata container for imported Standardkontoplan documents.
@@ -478,7 +482,14 @@ class VatCode(models.Model):
         on_delete=models.CASCADE,
         related_name="vat_codes",
     )
-
+    output_vat_account = models.ForeignKey(
+        "core.Account", null=True, blank=True, on_delete=models.PROTECT, related_name="+",
+        help_text=_("Sales VAT (udgående moms) account")
+    )
+    input_vat_account = models.ForeignKey(
+        "core.Account", null=True, blank=True, on_delete=models.PROTECT, related_name="+",
+        help_text=_("Purchase VAT (indgående moms) account")
+    )
     group = models.ForeignKey(
         VatGroup,
         on_delete=models.PROTECT,
@@ -681,4 +692,354 @@ class Item(models.Model):
     def effective_vat_code(self):
         return self.vat_code or self.group.default_vat_code
 
+class DocumentStatus(models.Model):
+    """
+    Configurable status values per document type.
+    Example:
+      - Sales Order: Draft, Confirmed, Delivered, Invoiced, Cancelled
+      - Purchase Invoice: Draft, Approved, Posted, Cancelled
+    """
 
+    class DocumentType(models.TextChoices):
+        SALES_OFFER = "SALES_OFFER", _("Sales offer")
+        SALES_ORDER = "SALES_ORDER", _("Sales order")
+        SALES_INVOICE = "SALES_INVOICE", _("Sales invoice")
+        SALES_CREDIT_NOTE = "SALES_CREDIT_NOTE", _("Sales credit note")
+        PURCHASE_ORDER = "PURCHASE_ORDER", _("Purchase order")
+        PURCHASE_INVOICE = "PURCHASE_INVOICE", _("Purchase invoice")
+        PURCHASE_CREDIT_NOTE = "PURCHASE_CREDIT_NOTE", _("Purchase credit note")
+
+    entity = models.ForeignKey("core.Entity", on_delete=models.CASCADE, related_name="document_statuses")
+    doc_type = models.CharField(max_length=40, choices=DocumentType.choices)
+
+    code = models.CharField(max_length=30)  # e.g. DRAFT / APPROVED / POSTED
+    name = models.CharField(max_length=80)  # human label
+    is_default = models.BooleanField(default=False)
+
+    # Optional flags you’ll likely want later:
+    is_final = models.BooleanField(default=False)      # “locked” state
+    is_cancelled = models.BooleanField(default=False)  # cancellation state
+
+    sort_order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ("entity", "doc_type", "code")
+        ordering = ("entity", "doc_type", "sort_order", "code")
+        constraints = [
+            # only one default per (entity, doc_type)
+            models.UniqueConstraint(
+                fields=["entity", "doc_type"],
+                condition=Q(is_default=True),
+                name="uniq_default_status_per_entity_and_type",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.entity} {self.doc_type}: {self.code} ({self.name})"
+
+
+class Document(models.Model):
+    """
+    Single table for all commercial documents.
+    Each specific doc type will be exposed via proxy models (admin entries).
+    """
+
+    class DocumentType(models.TextChoices):
+        SALES_OFFER = DocumentStatus.DocumentType.SALES_OFFER
+        SALES_ORDER = DocumentStatus.DocumentType.SALES_ORDER
+        SALES_INVOICE = DocumentStatus.DocumentType.SALES_INVOICE
+        SALES_CREDIT_NOTE = DocumentStatus.DocumentType.SALES_CREDIT_NOTE
+        PURCHASE_ORDER = DocumentStatus.DocumentType.PURCHASE_ORDER
+        PURCHASE_INVOICE = DocumentStatus.DocumentType.PURCHASE_INVOICE
+        PURCHASE_CREDIT_NOTE = DocumentStatus.DocumentType.PURCHASE_CREDIT_NOTE
+
+    entity = models.ForeignKey("core.Entity", on_delete=models.CASCADE, related_name="documents")
+    doc_type = models.CharField(max_length=40, choices=DocumentType.choices)
+
+    number = models.CharField(max_length=40, blank=True)  # your numbering logic later
+    date = models.DateField()
+
+    reference = models.CharField(max_length=255, blank=True)
+
+    # Parties – keep generic at first; you can replace with Debtor/Vendor models later
+    debtor = models.ForeignKey("core.Debtor", null=True, blank=True, on_delete=models.PROTECT, related_name="sales_documents")
+    # supplier = models.ForeignKey("core.Supplier", null=True, blank=True, on_delete=models.PROTECT, related_name="purchase_documents")
+
+    status = models.ForeignKey(
+        DocumentStatus,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="documents",
+        help_text=_("Must belong to the same entity and document type."),
+    )
+
+    currency = models.ForeignKey("core.IsoCurrencyCodes", null=True, blank=True, on_delete=models.PROTECT)
+    total = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
+
+    posted_journal = models.OneToOneField(
+        "core.Journal", null=True, blank=True, on_delete=models.PROTECT, related_name="source_document"
+    )
+    posted_at = models.DateTimeField(null=True, blank=True)
+    posted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    # Optional: lock flag if status is_final, but better computed from status
+    # is_locked = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ("-date", "-id")
+        indexes = [
+            models.Index(fields=["entity", "doc_type", "date"]),
+            models.Index(fields=["entity", "doc_type", "number"]),
+        ]
+
+    def clean(self):
+        # 1) Require correct party depending on type (basic example)
+        if self.doc_type in {
+            self.DocumentType.SALES_OFFER,
+            self.DocumentType.SALES_ORDER,
+            self.DocumentType.SALES_INVOICE,
+            self.DocumentType.SALES_CREDIT_NOTE,
+        } and not self.debtor_id:
+            raise ValidationError({"debtor": _("Debtor is required for sales documents.")})
+
+        # 2) Status must match entity and doc_type
+        if self.status_id:
+            if self.status.entity_id != self.entity_id:
+                raise ValidationError({"status": _("Status must belong to the same entity.")})
+            if self.status.doc_type != self.doc_type:
+                raise ValidationError({"status": _("Status must belong to the same document type.")})
+
+    def save(self, *args, **kwargs):
+        # ensure clean() runs when saving outside forms
+        self.full_clean()
+        # Auto-assign default status if missing
+        if not self.status_id:
+            default_status = (
+                DocumentStatus.objects
+                .filter(entity=self.entity, doc_type=self.doc_type, is_default=True, is_active=True)
+                .order_by("sort_order", "id")
+                .first()
+            )
+            if default_status:
+                self.status = default_status
+        super().save(*args, **kwargs)
+
+    def _get_ar_account(self):
+        if not self.debtor_id:
+            raise ValidationError("Debtor is required.")
+        if not self.debtor.group_id or not self.debtor.group.ar_account_id:
+            raise ValidationError("Debtor group with AR account is required.")
+        return self.debtor.group.ar_account
+
+    def _get_ap_account(self):
+        if not self.entity.default_ap_account_id:
+            raise ValidationError("Entity.default_ap_account is required for purchase posting.")
+        return self.entity.default_ap_account
+
+    def _vat_rate(self, vat_code) -> Decimal:
+        # Your VatCode.rate is a decimal fraction (0.2500) in earlier model
+        return vat_code.rate or Decimal("0")
+
+    def _effective_sales_account_for_line(self, line):
+        if line.sales_account_id:
+            return line.sales_account
+        if line.item_id:
+            acc = line.item.effective_sales_account
+            if acc:
+                return acc
+        raise ValidationError(f"Missing sales account for line {line.line_no}.")
+
+    def _effective_expense_account_for_line(self, line):
+        if line.expense_account_id:
+            return line.expense_account
+        if line.item_id:
+            # if you don’t have effective expense yet, wire to cogs_account
+            acc = line.item.effective_cogs_account if hasattr(line.item, "effective_cogs_account") else None
+            if acc:
+                return acc
+        raise ValidationError(f"Missing expense/COGS account for line {line.line_no}.")
+
+    def _effective_vat_code_for_line(self, line):
+        if line.vat_code_id:
+            return line.vat_code
+        if line.item_id:
+            vat = line.item.effective_vat_code
+            if vat:
+                return vat
+        return None  # allow no-VAT lines
+
+    def _assert_can_post(self):
+        if self.posted_journal_id:
+            raise ValidationError("Document is already posted.")
+        if not self.lines.exists():
+            raise ValidationError("Document has no lines.")
+        if self.is_locked:
+            raise ValidationError("Document is locked (final status).")
+
+    @transaction.atomic
+    def post(self, by_user=None):
+        # Lock document row to prevent double posting in concurrency
+        doc = Document.objects.select_for_update().get(pk=self.pk)
+        doc._assert_can_post()
+
+        # Build journal
+        from core.models import Journal, JournalLine  # adjust import to your module layout
+
+        j = Journal.objects.create(
+            entity=doc.entity,
+            date=doc.date,
+            reference=f"{doc.get_doc_type_display()} {doc.number or doc.pk}",
+            posted=False,
+        )
+
+        # Helper: add a journal line
+        def add_line(account, debit=Decimal("0.00"), credit=Decimal("0.00"), desc=""):
+            if debit and credit:
+                raise ValidationError("JournalLine cannot have both debit and credit.")
+            JournalLine.objects.create(
+                journal=j,
+                account=account,
+                description=desc[:255],
+                debit=debit,
+                credit=credit,
+            )
+
+        # Accumulators
+        total_net = Decimal("0.00")
+        total_vat = Decimal("0.00")
+
+        # Post lines
+        for line in doc.lines.select_related("item", "vat_code").all():
+            net = line.net_amount
+            vat_code = doc._effective_vat_code_for_line(line)
+            vat_amt = Decimal("0.00")
+
+            if vat_code:
+                rate = doc._vat_rate(vat_code)
+                vat_amt = (net * rate).quantize(Decimal("0.01"))
+            total_net += net
+            total_vat += vat_amt
+
+            # Determine behavior per doc type
+            if doc.doc_type in {doc.DocumentType.SALES_INVOICE, doc.DocumentType.SALES_CREDIT_NOTE}:
+                revenue_acc = doc._effective_sales_account_for_line(line)
+                # Credit revenue on invoice, debit revenue on credit note
+                if doc.doc_type == doc.DocumentType.SALES_INVOICE:
+                    add_line(revenue_acc, credit=net.quantize(Decimal("0.01")), desc=line.description or "Revenue")
+                else:
+                    add_line(revenue_acc, debit=net.quantize(Decimal("0.01")), desc=line.description or "Revenue reversal")
+
+                if vat_code and vat_amt != 0:
+                    if not vat_code.output_vat_account_id:
+                        raise ValidationError(f"Missing output VAT account on VAT code {vat_code.code}.")
+                    if doc.doc_type == doc.DocumentType.SALES_INVOICE:
+                        add_line(vat_code.output_vat_account, credit=vat_amt, desc=f"Output VAT {vat_code.code}")
+                    else:
+                        add_line(vat_code.output_vat_account, debit=vat_amt, desc=f"Output VAT reversal {vat_code.code}")
+
+            elif doc.doc_type in {doc.DocumentType.PURCHASE_INVOICE, doc.DocumentType.PURCHASE_CREDIT_NOTE}:
+                exp_acc = doc._effective_expense_account_for_line(line)
+                # Debit expense on invoice, credit on credit note
+                if doc.doc_type == doc.DocumentType.PURCHASE_INVOICE:
+                    add_line(exp_acc, debit=net.quantize(Decimal("0.01")), desc=line.description or "Expense")
+                else:
+                    add_line(exp_acc, credit=net.quantize(Decimal("0.01")), desc=line.description or "Expense reversal")
+
+                if vat_code and vat_amt != 0:
+                    if not vat_code.input_vat_account_id:
+                        raise ValidationError(f"Missing input VAT account on VAT code {vat_code.code}.")
+                    if doc.doc_type == doc.DocumentType.PURCHASE_INVOICE:
+                        add_line(vat_code.input_vat_account, debit=vat_amt, desc=f"Input VAT {vat_code.code}")
+                    else:
+                        add_line(vat_code.input_vat_account, credit=vat_amt, desc=f"Input VAT reversal {vat_code.code}")
+            else:
+                raise ValidationError(f"Posting not implemented for {doc.doc_type} yet.")
+
+        gross = (total_net + total_vat).quantize(Decimal("0.01"))
+
+        # Control account line (AR/AP)
+        if doc.doc_type in {doc.DocumentType.SALES_INVOICE, doc.DocumentType.SALES_CREDIT_NOTE}:
+            ar = doc._get_ar_account()
+            if doc.doc_type == doc.DocumentType.SALES_INVOICE:
+                add_line(ar, debit=gross, desc="Accounts receivable")
+            else:
+                add_line(ar, credit=gross, desc="Accounts receivable reversal")
+        else:
+            ap = doc._get_ap_account()
+            if doc.doc_type == doc.DocumentType.PURCHASE_INVOICE:
+                add_line(ap, credit=gross, desc="Accounts payable")
+            else:
+                add_line(ap, debit=gross, desc="Accounts payable reversal")
+
+        # Validate balance
+        sums = j.lines.aggregate(
+            d=models.Sum("debit"),
+            c=models.Sum("credit"),
+        )
+        d = (sums["d"] or Decimal("0.00")).quantize(Decimal("0.01"))
+        c = (sums["c"] or Decimal("0.00")).quantize(Decimal("0.01"))
+        if d != c:
+            raise ValidationError(f"Journal not balanced. Debit={d} Credit={c}")
+
+        # Mark posted
+        j.posted = True
+        j.save(update_fields=["posted"])
+
+        doc.posted_journal = j
+        doc.posted_at = timezone.now()
+        doc.posted_by = by_user
+        doc.save(update_fields=["posted_journal", "posted_at", "posted_by"])
+
+        return j
+
+    @property
+    def is_locked(self):
+        return bool(self.status_id and self.status.is_final)
+
+    def __str__(self):
+        return f"{self.get_doc_type_display()} {self.number or self.pk}"
+
+class DocumentLine(models.Model):
+    document = models.ForeignKey("core.Document", on_delete=models.CASCADE, related_name="lines")
+
+    line_no = models.PositiveIntegerField(default=1)
+    description = models.CharField(max_length=255, blank=True)
+
+    item = models.ForeignKey("core.Item", null=True, blank=True, on_delete=models.PROTECT)
+    quantity = models.DecimalField(max_digits=14, decimal_places=4, default=Decimal("1.0000"))
+    unit_price = models.DecimalField(max_digits=14, decimal_places=4, default=Decimal("0.0000"))
+    discount_pct = models.DecimalField(max_digits=6, decimal_places=4, default=Decimal("0.0000"))  # 0..1
+
+    # Allow override of accounts per line (optional). If null -> use item effective accounts.
+    sales_account = models.ForeignKey("core.Account", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    expense_account = models.ForeignKey("core.Account", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+
+    vat_code = models.ForeignKey("core.VatCode", null=True, blank=True, on_delete=models.PROTECT)
+
+    class Meta:
+        ordering = ("document_id", "line_no", "id")
+
+    def clean(self):
+        # Prevent edits when posted
+        if self.document_id and getattr(self.document, "posted_journal_id", None):
+            raise ValidationError(_("Cannot modify lines on a posted document."))
+
+        if self.quantity == 0:
+            raise ValidationError({"quantity": _("Quantity cannot be zero.")})
+
+        if self.discount_pct < 0 or self.discount_pct > 1:
+            raise ValidationError({"discount_pct": _("Discount must be between 0 and 1 (e.g. 0.10).")})
+
+    @property
+    def net_amount(self) -> Decimal:
+        return (self.quantity * self.unit_price) * (Decimal("1.0") - (self.discount_pct or Decimal("0")))
+
+    def __str__(self):
+        return f"{self.document} #{self.line_no}"

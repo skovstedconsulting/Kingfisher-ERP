@@ -75,6 +75,20 @@ UNFOLD = {
                 ],
             },
             {
+                "title": _("Documents"),
+                "collapsible": True,
+                "items": [
+                    {"title": _("Sales offers"), "icon": "request_quote", "link": admin_changelist(CORE_APP_LABEL, "salesoffer")},
+                    {"title": _("Sales orders"), "icon": "shopping_cart", "link": admin_changelist(CORE_APP_LABEL, "salesorder")},
+                    {"title": _("Sales invoices"), "icon": "receipt", "link": admin_changelist(CORE_APP_LABEL, "salesinvoice")},
+                    {"title": _("Sales credit notes"), "icon": "assignment_return", "link": admin_changelist(CORE_APP_LABEL, "salescreditnote")},
+                    {"title": _("Purchase orders"), "icon": "inventory", "link": admin_changelist(CORE_APP_LABEL, "purchaseorder")},
+                    {"title": _("Purchase invoices"), "icon": "description", "link": admin_changelist(CORE_APP_LABEL, "purchaseinvoice")},
+                    {"title": _("Purchase credit notes"), "icon": "undo", "link": admin_changelist(CORE_APP_LABEL, "purchasecreditnote")},
+                    {"title": _("Document statuses"), "icon": "tune", "link": admin_changelist(CORE_APP_LABEL, "documentstatus")},
+                ],
+            },
+            {
                 "title": _("VAT"),
                 "collapsible": True,
                 "items": [

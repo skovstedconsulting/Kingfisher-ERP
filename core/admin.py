@@ -3,6 +3,8 @@ from unfold.admin import ModelAdmin
 
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
+from .documents import SalesOffer, SalesOrder, SalesInvoice, SalesCreditNote, PurchaseOrder, PurchaseInvoice, PurchaseCreditNote
+
 from .models import (
     Entity,
     FiscalYear,
@@ -21,7 +23,9 @@ from .models import (
     VatGroup,
     ItemGroup,
     Item,
-
+    DocumentStatus,
+    Document,
+    DocumentLine,
 )
 
 
@@ -240,3 +244,117 @@ class ItemAdmin(admin.ModelAdmin):
     def effective_vat_code_display(self, obj):
         vat = obj.effective_vat_code
         return str(vat) if vat else ""
+
+
+@admin.register(DocumentStatus)
+class DocumentStatusAdmin(ModelAdmin):
+    list_display = ("entity", "doc_type", "code", "name", "is_default", "is_final", "is_active", "sort_order")
+    list_filter = ("entity", "doc_type", "is_default", "is_final", "is_active")
+    search_fields = ("code", "name")
+    ordering = ("entity", "doc_type", "sort_order", "code")
+
+class DocumentLineInline(admin.TabularInline):
+    model = DocumentLine
+    extra = 0
+    autocomplete_fields = ("item", "vat_code", "sales_account", "expense_account")
+
+    def has_add_permission(self, request, obj=None):
+        if obj and obj.posted_journal_id:
+            return False
+        return super().has_add_permission(request, obj)
+
+    def has_change_permission(self, request, obj=None):
+        if obj and obj.posted_journal_id:
+            return False
+        return super().has_change_permission(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        if obj and obj.posted_journal_id:
+            return False
+        return super().has_delete_permission(request, obj)
+
+class BaseDocumentAdmin(ModelAdmin):
+    list_display = ("id", "entity", "doc_type", "number", "date", "status", "reference", "total")
+    list_filter = ("entity", "status", "date")
+    search_fields = ("number", "reference")
+    ordering = ("-date", "-id")
+    autocomplete_fields = ("entity", "status", "debtor", "currency")
+
+    inlines = [DocumentLineInline]
+    readonly_fields = ("posted_journal", "posted_at", "posted_by")
+
+    # Ensure status dropdown only shows valid statuses for entity+type
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        field = super().formfield_for_foreignkey(db_field, request, **kwargs)
+        if db_field.name == "status":
+            # When adding a new doc, we filter by doc_type from admin class constant
+            doc_type = getattr(self, "DOC_TYPE", None)
+            if doc_type:
+                field.queryset = field.queryset.filter(doc_type=doc_type, is_active=True)
+        return field
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        doc_type = getattr(self, "DOC_TYPE", None)
+        return qs.filter(doc_type=doc_type) if doc_type else qs
+
+    def save_model(self, request, obj, form, change):
+        # force type from the proxy admin
+        doc_type = getattr(self, "DOC_TYPE", None)
+        if doc_type:
+            obj.doc_type = doc_type
+        super().save_model(request, obj, form, change)
+    
+    @admin.action(description="Post selected documents")
+    def post_selected(self, request, queryset):
+        ok, failed = 0, 0
+        for doc in queryset:
+            try:
+                doc.post(by_user=request.user)
+                ok += 1
+            except ValidationError as e:
+                failed += 1
+                self.message_user(request, f"Doc {doc.pk} failed: {e}", level="ERROR")
+        if ok:
+            self.message_user(request, f"Posted {ok} document(s).", level="SUCCESS")
+
+
+
+
+@admin.register(SalesOffer)
+class SalesOfferAdmin(BaseDocumentAdmin):
+    DOC_TYPE = Document.DocumentType.SALES_OFFER
+    list_display = ("id", "entity", "number", "date", "status", "debtor", "total")
+
+
+@admin.register(SalesOrder)
+class SalesOrderAdmin(BaseDocumentAdmin):
+    DOC_TYPE = Document.DocumentType.SALES_ORDER
+    list_display = ("id", "entity", "number", "date", "status", "debtor", "total")
+
+
+@admin.register(SalesInvoice)
+class SalesInvoiceAdmin(BaseDocumentAdmin):
+    DOC_TYPE = Document.DocumentType.SALES_INVOICE
+    list_display = ("id", "entity", "number", "date", "status", "debtor", "total")
+
+
+@admin.register(SalesCreditNote)
+class SalesCreditNoteAdmin(BaseDocumentAdmin):
+    DOC_TYPE = Document.DocumentType.SALES_CREDIT_NOTE
+    list_display = ("id", "entity", "number", "date", "status", "debtor", "total")
+
+
+@admin.register(PurchaseOrder)
+class PurchaseOrderAdmin(BaseDocumentAdmin):
+    DOC_TYPE = Document.DocumentType.PURCHASE_ORDER
+
+
+@admin.register(PurchaseInvoice)
+class PurchaseInvoiceAdmin(BaseDocumentAdmin):
+    DOC_TYPE = Document.DocumentType.PURCHASE_INVOICE
+
+
+@admin.register(PurchaseCreditNote)
+class PurchaseCreditNoteAdmin(BaseDocumentAdmin):
+    DOC_TYPE = Document.DocumentType.PURCHASE_CREDIT_NOTE
