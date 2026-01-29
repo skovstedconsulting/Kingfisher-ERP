@@ -29,7 +29,8 @@ Goal: Accounting correctness and auditability.
 
 Goal: Operational flows that feed accounting.
 
-- [ ] Customers & vendors
+- [X] Customers, Customer Groups
+- [ ] Vendors, Vendor Groups
 - [ ] Orders, invoices, credit notes
 - [ ] Payment allocation & settlement
 - [ ] Purchase orders
