@@ -9,7 +9,7 @@ It is a guiding document, not a commitment to timelines.
 
 Goal: Accounting correctness and auditability.
 
-- [ ] Chart of Accounts
+- [x] Chart of Accounts
 - [ ] General Ledger posting engine
 - [ ] Double-entry validation
 - [ ] Accounts Receivable (open items)
