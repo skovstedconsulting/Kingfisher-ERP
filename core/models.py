@@ -386,3 +386,59 @@ class DebtorGroup(models.Model):
 
     def __str__(self):
         return f"{self.code} – {self.name}"
+
+class Debtor(models.Model):
+    entity = models.ForeignKey(Entity, on_delete=models.CASCADE, related_name="debtors")
+    number = models.CharField(max_length=20)
+    name = models.CharField(max_length=255)
+    is_active = models.BooleanField(default=True)
+
+    group = models.ForeignKey(
+        DebtorGroup,
+        on_delete=models.PROTECT,
+        related_name="debtors",
+    )
+
+    payment_terms = models.ForeignKey(
+        PaymentTerms,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="debtors",
+        help_text=_("If blank, group default is used"),
+    )
+
+    billing_address = models.ForeignKey(
+        Address,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="billing_debtors",
+    )
+
+    delivery_address = models.ForeignKey(
+        Address,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="delivery_debtors",
+    )
+
+    email = models.EmailField(blank=True)
+    phone = models.CharField(max_length=50, blank=True)
+
+    class Meta:
+        unique_together = ("entity", "number")
+        ordering = ["number"]
+
+    def __str__(self):
+        return f"{self.number} – {self.name}"
+
+    @property
+    def effective_payment_terms(self):
+        return self.payment_terms or self.group.default_payment_terms
+
+    @property
+    def ar_account(self):
+        # AR account comes from group (as requested)
+        return self.group.ar_account
