@@ -13,89 +13,13 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from pathlib import Path
 from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
+from config.menu import UNFOLD
 
 APP_LABEL = "core"
 
 def admin_changelist(model: str):
     # model must be lowercase model name, e.g. "vatcode"
     return reverse_lazy(f"admin:{APP_LABEL}_{model}_changelist")
-
-UNFOLD = {
-    "SITE_HEADER": "Kingfisher ERP",
-    "SITE_TITLE": "Kingfisher ERP",
-    "SITE_URL": "/",  # optional: logo link
-    "DASHBOARD_CALLBACK": None,  # optional advanced
-    "SIDEBAR": {
-        "show_search": True,
-        "show_all_applications": False,  # only show our curated menu
-        "navigation": [
-            {
-                "title": _("Company & Setup"),
-                "separator": True,
-                "collapsible": True,
-                "items": [
-                    {"title": _("Entities"), "icon": "apartment", "link": admin_changelist("entity")},
-                    {"title": _("Fiscal years"), "icon": "event", "link": admin_changelist("fiscalyear")},
-                    {"title": _("Addresses"), "icon": "home_pin", "link": admin_changelist("address")},
-                    {"title": _("Payment terms"), "icon": "schedule", "link": admin_changelist("paymentterms")},
-                ],
-            },
-            {
-                "title": _("Finance"),
-                "collapsible": True,
-                "items": [
-                    {"title": _("Accounts"), "icon": "account_balance", "link": admin_changelist("account")},
-                    {"title": _("Journals"), "icon": "receipt_long", "link": admin_changelist("journal")},
-                ],
-            },
-            {
-                "title": _("VAT"),
-                "collapsible": True,
-                "items": [
-                    {"title": _("VAT groups"), "icon": "folder", "link": admin_changelist("vatgroup")},
-                    {"title": _("VAT codes"), "icon": "percent", "link": admin_changelist("vatcode")},
-                ],
-            },
-            {
-                "title": _("Sales (AR)"),
-                "collapsible": True,
-                "items": [
-                    {"title": _("Debtor groups"), "icon": "groups", "link": admin_changelist("debtorgroup")},
-                    {"title": _("Debtors"), "icon": "person", "link": admin_changelist("debtor")},
-                ],
-            },
-            {
-                "title": _("Items"),
-                "collapsible": True,
-                "items": [
-                    {"title": _("Item groups"), "icon": "category", "link": admin_changelist("itemgroup")},
-                    {"title": _("Items"), "icon": "inventory_2", "link": admin_changelist("item")},
-                ],
-            },
-            {
-                "title": _("Chart of Accounts"),
-                "collapsible": True,
-                "items": [
-                    {"title": _("COA templates"), "icon": "account_tree", "link": admin_changelist("chartofaccountstemplate")},
-                ],
-            },
-            {
-                "title": _("Reference data"),
-                "collapsible": True,
-                "items": [
-                    {"title": _("ISO countries"), "icon": "public", "link": admin_changelist("isocountrycodes")},
-                    {"title": _("ISO currencies"), "icon": "currency_exchange", "link": admin_changelist("isocurrencycodes")},
-                ],
-            },
-        ],
-    },
-}
-
-
-
-
-
-
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
