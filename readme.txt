@@ -33,6 +33,7 @@ Prefer clarity over abstraction
 Enable best-of-breed integrations instead of all-in-one solutions
 
 🧩 Scope & Feature Areas
+
 Finance & Accounting
 
 General Ledger (GL)
@@ -159,32 +160,6 @@ Work well with existing Django plugins and external BI tools
 
 Use the best tool for the job.
 
-🚫 Non-Goals
-
-This project explicitly does not aim to:
-
-Be a turnkey ERP for non-technical users
-
-Compete with Odoo, SAP, or Dynamics feature-for-feature
-
-Provide a polished end-user frontend
-
-Hide business logic behind configuration screens
-
-Optimize for low-code or no-code customization
-
-Replace modern BI platforms
-
-If you want:
-
-A drag-and-drop ERP
-
-A configuration-driven system
-
-A closed, opinionated workflow
-
-This project is probably not for you — and that’s okay.
-
 📦 Deployment Philosophy
 
 Simple local setup
@@ -197,41 +172,5 @@ Suitable for self-hosting
 
 Deployment should feel like deploying a normal Django application, not an ERP installation project.
 
-🚧 Project Status
-
-This project is under active development.
-
-Expect:
-
-Incomplete modules
-
-Breaking changes
-
-Ongoing domain modeling
-
-Stability will come after the accounting and domain foundations are solid.
-
-🤝 Contributions
-
-Contributions are welcome — especially in areas like:
-
-Accounting models
-
-Sub-ledger design
-
-Multi-currency handling
-
-Performance vs. clarity trade-offs
-
-Clear code and clear reasoning matter more than cleverness.
-
-📌 Final Note
-
-This project exists to prove that:
-
-ERP systems do not have to be opaque, expensive, or inaccessible.
-
-They can be simple, correct, and open.
-
-Author
+Best regards
 Kresten Skovsted Buch
