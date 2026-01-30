@@ -26,7 +26,8 @@ from .models import (
     DocumentStatus,
     Document,
     DocumentLine,
-    NumberSeries,     
+    NumberSeries,
+    ExchangeRate,
 )
 
 @admin.register(Entity)
@@ -435,3 +436,9 @@ class DebtorGroupAdmin(ModelAdmin):
         (_("Defaults"), {"fields": ("default_payment_terms", "number_series")}),
     )
 
+@admin.register(ExchangeRate)
+class ExchangeRateAdmin(ModelAdmin):
+    list_display = ("date", "base", "quote", "rate", "source", "fetched_at")
+    list_filter = ("base", "quote", "source", "date")
+    search_fields = ("base", "quote", "source")
+    ordering = ("-date", "base", "quote")

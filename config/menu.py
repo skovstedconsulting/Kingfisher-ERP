@@ -74,6 +74,7 @@ UNFOLD = {
                     {"title": _("Accounts"), "icon": "account_balance", "link": admin_changelist(CORE_APP_LABEL, "account")},
                     {"title": _("Journals"), "icon": "receipt_long", "link": admin_changelist(CORE_APP_LABEL, "journal")},
                     {"title": _("Journal lines"), "icon": "post_add", "link": admin_changelist(CORE_APP_LABEL, "journalline")},
+                    {"title": _("Exchange rates"), "icon": "currency_exchange", "link": admin_changelist(CORE_APP_LABEL, "exchangerate")},
                 ],
             },
             {
