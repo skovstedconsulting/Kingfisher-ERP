@@ -10,7 +10,7 @@ It is a guiding document, not a commitment to timelines.
 Goal: Accounting correctness and auditability.
 
 - [x] Chart of Accounts
-- [ ] General Ledger posting engine
+- [x] General Ledger posting engine
 - [x] Double-entry validation
 - [ ] Accounts Receivable (open items)
 - [ ] Accounts Payable (open items)
@@ -20,7 +20,7 @@ Goal: Accounting correctness and auditability.
 - [ ] Audit trail & document linkage
 - [x] Import job to get ISO currencies and ISO countries
 - [x] Import job to get Danish Government Chart of account of 2026
-- [ ] Import job to get dayly exchange rates
+- [x] Import job to get dayly exchange rates
 - [ ] Notes and attachments
 - [x] Number Series
 

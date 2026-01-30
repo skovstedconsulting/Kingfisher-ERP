@@ -8,6 +8,7 @@ from django.db.models import Q, F, Sum
 from django.db.models.constraints import CheckConstraint
 from django.utils import timezone
 from config import settings
+from django.core.validators import MinValueValidator
 
 class IsoCountryCodes(models.Model):
     """
@@ -1173,3 +1174,78 @@ class NumberSeries(models.Model):
         s.save(update_fields=["next_number"])
 
         return s.format_number(n)
+
+
+class ExchangeRate(models.Model):
+    """
+    Exchange rate for a given date.
+    Stored as: 1 BASE = rate * QUOTE
+    Example:
+        base=EUR, quote=DKK, rate=7.46038
+    """
+
+    SOURCE_ECB = "ECB"
+    SOURCE_MANUAL = "MANUAL"
+    SOURCE_CHOICES = (
+        (SOURCE_ECB, "European Central Bank"),
+        (SOURCE_MANUAL, "Manual"),
+    )
+
+    entity = models.ForeignKey(
+        "core.Entity",
+        on_delete=models.CASCADE,
+        related_name="exchange_rates",
+        null=True,
+        blank=True,
+        help_text="Optional. Null = global rate",
+    )
+
+    date = models.DateField(db_index=True)
+
+    base = models.CharField(
+        max_length=3,
+        db_index=True,
+        help_text="Base currency (e.g. EUR)",
+    )
+
+    quote = models.CharField(
+        max_length=3,
+        db_index=True,
+        help_text="Quote currency (e.g. DKK)",
+    )
+
+    rate = models.DecimalField(
+        max_digits=20,
+        decimal_places=10,
+        validators=[MinValueValidator(Decimal("0.0000000001"))],
+        help_text="1 base = rate * quote",
+    )
+
+    source = models.CharField(
+        max_length=20,
+        choices=SOURCE_CHOICES,
+        default=SOURCE_ECB,
+    )
+
+    fetched_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="When the rate was fetched/imported",
+    )
+
+    class Meta:
+        unique_together = (
+            "entity",
+            "date",
+            "base",
+            "quote",
+            "source",
+        )
+        indexes = [
+            models.Index(fields=["date", "base", "quote"]),
+            models.Index(fields=["entity", "date"]),
+        ]
+        ordering = ["-date", "base", "quote"]
+
+    def __str__(self):
+        scope = self.entity or "GLOBAL"
+        return f"{self.date} {scope}: 1 {self.base} = {self.rate} {self.quote}"
