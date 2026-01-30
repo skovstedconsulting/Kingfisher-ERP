@@ -23,6 +23,7 @@ Goal: Accounting correctness and auditability.
 - [x] Import job to get dayly exchange rates
 - [ ] Notes and attachments
 - [x] Number Series
+- [ ] Automatic change document status on posting
 
 ---
 
