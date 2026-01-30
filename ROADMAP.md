@@ -14,7 +14,7 @@ Goal: Accounting correctness and auditability.
 - [x] Double-entry validation
 - [ ] Accounts Receivable (open items)
 - [ ] Accounts Payable (open items)
-- [ ] VAT / tax model
+- [x] VAT / tax model
 - [ ] Multi-currency foundations
 - [ ] Period close & revaluation
 - [ ] Audit trail & document linkage
