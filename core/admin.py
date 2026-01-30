@@ -30,6 +30,8 @@ from .models import (
     ExchangeRate,
 )
 
+from core.services.ecb import fetch_ecb_daily_rates
+
 @admin.register(Entity)
 class EntityAdmin(ModelAdmin):
     list_display = ("id", "name", "country", "currency", "is_active")
@@ -71,6 +73,31 @@ class EntityAdmin(ModelAdmin):
         "default_series_purchase_invoice",
         "default_series_purchase_credit_note",
     )
+    actions = ["fetch_ecb_rates_now"]
+    
+    @admin.action(description="Fetch ECB rates now")
+    def fetch_ecb_rates_now(self, request, queryset):
+        as_of, rates = fetch_ecb_daily_rates()
+
+        codes = set(rates.keys()) | {"EUR"}
+        currencies = {c.code: c for c in IsoCurrencyCodes.objects.filter(code__in=codes)}
+        base = currencies["EUR"]
+
+        for entity in queryset:
+            for code, rate in rates.items():
+                quote = currencies.get(code)
+                if not quote:
+                    continue  # eller opret currency automatisk
+
+                ExchangeRate.objects.update_or_create(
+                    entity=entity,
+                    date=as_of,
+                    base=base,
+                    quote=quote,
+                    defaults={"rate": rate, "source": "ECB"},
+                )
+
+        self.message_user(request, f"ECB rates saved for {as_of}.", level=messages.SUCCESS)
 
 @admin.register(FiscalYear)
 class FiscalYearAdmin(admin.ModelAdmin):
@@ -442,3 +469,4 @@ class ExchangeRateAdmin(ModelAdmin):
     list_filter = ("base", "quote", "source", "date")
     search_fields = ("base", "quote", "source")
     ordering = ("-date", "base", "quote")
+    
