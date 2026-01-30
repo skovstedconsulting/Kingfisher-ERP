@@ -39,6 +39,7 @@ Goal: Operational flows that feed accounting.
 - [ ] Invoice matching
 - [ ] Pricelist
 - [ ] Pricelist nesting
+- [ ] Convert documents: Offer -> Order -> Invioce -> Credit note
 
 ---
 
