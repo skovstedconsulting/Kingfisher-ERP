@@ -26,7 +26,7 @@ from .models import (
     DocumentStatus,
     Document,
     DocumentLine,
-    NumberSeries, 
+    NumberSeries,     
 )
 
 @admin.register(Entity)
@@ -91,11 +91,12 @@ class JournalLineInline(admin.TabularInline):
     extra = 1
 
 @admin.register(Journal)
-class JournalAdmin(admin.ModelAdmin):
+class JournalAdmin(ModelAdmin):
     list_display = ("id", "entity", "date", "posted")
     list_filter = ("entity", "posted")
-    inlines = [JournalLineInline]  # if you have one
-    readonly_fields = ("posted",)  # IMPORTANT: prevent toggling posted in the form
+    search_fields = ("id", "reference", "number", "entity__name")  # <-- add this
+    inlines = [JournalLineInline]
+    readonly_fields = ("posted",)
     actions = ["post_selected"]
 
     @admin.action(description="Post selected journals")
@@ -103,15 +104,21 @@ class JournalAdmin(admin.ModelAdmin):
         ok, failed = 0, 0
         for j in queryset:
             try:
-                j.post(by_user=request.user)  # your posting method with validation
+                j.post(by_user=request.user)
                 ok += 1
             except ValidationError as e:
                 failed += 1
                 self.message_user(request, f"Journal {j.pk} failed: {e}", level=messages.ERROR)
-
         if ok:
             self.message_user(request, f"Posted {ok} journal(s).", level=messages.SUCCESS)
 
+@admin.register(JournalLine)
+class JournalLineAdmin(ModelAdmin):
+    list_display = ("journal", "account", "debit", "credit", "description")
+    list_filter = ("journal__entity",)
+    search_fields = ("journal__id", "account__number", "account__name", "description")
+    ordering = ("journal", "id")
+    autocomplete_fields = ("journal", "account")
 
 @admin.register(IsoCountryCodes)
 class IsoCountryCodesAdmin(admin.ModelAdmin):
@@ -313,7 +320,7 @@ class BaseDocumentAdmin(ModelAdmin):
     search_fields = ("number", "reference")
     ordering = ("-date", "-id")
     autocomplete_fields = ("entity", "status", "debtor", "currency")
-
+    actions = ["post_selected"]   # <-- add this
     inlines = [DocumentLineInline]
     readonly_fields = ("posted_journal", "posted_at", "posted_by")
 

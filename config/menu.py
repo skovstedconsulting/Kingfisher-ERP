@@ -64,6 +64,7 @@ UNFOLD = {
                     {"title": _("ISO currencies"), "icon": "currency_exchange", "link": admin_changelist(CORE_APP_LABEL, "isocurrencycodes")},
                     {"title": _("COA templates"), "icon": "account_tree", "link": admin_changelist(CORE_APP_LABEL, "chartofaccountstemplate")},        
                     {"title": _("Document statuses"), "icon": "tune", "link": admin_changelist(CORE_APP_LABEL, "documentstatus")},
+                    {"title": _("Number series"), "icon": "format_list_numbered", "link": admin_changelist(CORE_APP_LABEL, "numberseries")},
                 ],
             },
             {
@@ -72,6 +73,7 @@ UNFOLD = {
                 "items": [
                     {"title": _("Accounts"), "icon": "account_balance", "link": admin_changelist(CORE_APP_LABEL, "account")},
                     {"title": _("Journals"), "icon": "receipt_long", "link": admin_changelist(CORE_APP_LABEL, "journal")},
+                    {"title": _("Journal lines"), "icon": "post_add", "link": admin_changelist(CORE_APP_LABEL, "journalline")},
                 ],
             },
             {

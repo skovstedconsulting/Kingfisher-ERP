@@ -164,6 +164,7 @@ class Journal(models.Model):
     date = models.DateField()
     reference = models.CharField(max_length=255, blank=True)
     posted = models.BooleanField(default=False)
+    number = models.CharField(max_length=40, blank=True)
 
     CENT = Decimal("0.01")
 
@@ -959,6 +960,14 @@ class Document(models.Model):
             posted=False,
         )
 
+        # allocate journal number (no gaps if only when posting)
+        if not j.number:
+            series = doc.entity.default_series_journal
+            if not series:
+                raise ValidationError("Entity.default_series_journal is required.")
+            j.number = series.allocate()
+            j.save(update_fields=["number"])
+
         # Helper: add a journal line
         def add_line(account, debit=Decimal("0.00"), credit=Decimal("0.00"), desc=""):
             if debit and credit:
@@ -1048,9 +1057,8 @@ class Document(models.Model):
         if d != c:
             raise ValidationError(f"Journal not balanced. Debit={d} Credit={c}")
 
-        # Mark posted
-        j.posted = True
-        j.save(update_fields=["posted"])
+        # Validate + post journal using the dedicated method
+        j.post(by_user=by_user)
 
         doc.posted_journal = j
         doc.posted_at = timezone.now()
