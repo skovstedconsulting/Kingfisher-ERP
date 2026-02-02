@@ -23,6 +23,7 @@ Goal: Accounting correctness and auditability.
 - [x] Import job to get dayly exchange rates
 - [ ] Notes and attachments
 - [x] Number Series
+- [ ] Automatic change document status on posting
 
 ---
 
@@ -39,6 +40,7 @@ Goal: Operational flows that feed accounting.
 - [ ] Invoice matching
 - [ ] Pricelist
 - [ ] Pricelist nesting
+- [ ] Convert documents: Offer -> Order -> Invioce -> Credit note
 
 ---
 
