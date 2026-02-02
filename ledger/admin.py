@@ -38,7 +38,7 @@ class JournalLineAdmin(EntityScopedAdminMixin, GuardedModelAdmin, admin.ModelAdm
 @admin.register(OpenItem)
 class OpenItemAdmin(EntityScopedAdminMixin, GuardedModelAdmin, admin.ModelAdmin):
     list_display = ("entity", "kind", "debtor", "creditor", "remaining_base", "currency")
-    list_filter = ("entity", "kind")
+    list_filter = ("entity", "kind", "debtor", "creditor")
     search_fields = ("id",)
 
 
