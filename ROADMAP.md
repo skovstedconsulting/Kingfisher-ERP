@@ -12,18 +12,18 @@ Goal: Accounting correctness and auditability.
 - [x] Chart of Accounts
 - [x] General Ledger posting engine
 - [x] Double-entry validation
-- [ ] Accounts Receivable (open items)
-- [ ] Accounts Payable (open items)
+- [x] Accounts Receivable (open items)
+- [x] Accounts Payable (open items)
 - [x] VAT / tax model
-- [ ] Multi-currency foundations
-- [ ] Period close & revaluation
+- [x] Multi-currency foundations
+- [x] Period close & revaluation
 - [ ] Audit trail & document linkage
 - [x] Import job to get ISO currencies and ISO countries
 - [x] Import job to get Danish Government Chart of account of 2026
 - [x] Import job to get dayly exchange rates
 - [ ] Notes and attachments
 - [x] Number Series
-- [ ] Automatic change document status on posting
+- [x] Automatic change document status on posting
 
 ---
 
@@ -32,15 +32,16 @@ Goal: Accounting correctness and auditability.
 Goal: Operational flows that feed accounting.
 
 - [X] Customers, Customer Groups
-- [ ] Vendors, Vendor Groups
+- [x] Vendors, Vendor Groups
 - [x] Orders, invoices, credit notes
-- [ ] Payment allocation & settlement
+- [x] Payment allocation & settlement
 - [x] Purchase orders
 - [ ] Goods receipt
-- [ ] Invoice matching
+- [ ] Find a good dango project to implement to handle prices, could it be oscar
 - [ ] Pricelist
 - [ ] Pricelist nesting
-- [ ] Convert documents: Offer -> Order -> Invioce -> Credit note
+- [x] Convert documents: Offer -> Order -> Invioce
+- [ ] Credit note
 
 ---
 
@@ -57,7 +58,9 @@ Goal: Handle and reconsile bank accounts.
 
 Goal: Stock correctness, not just quantities.
 
-- [ ] Items, variants, units
+- [x] Items
+- [ ] Find a good dango project to implement to handle variants, could it be oscar
+- [ ] Variants, units
 - [ ] Stock movements
 - [ ] Valuation methods
 - [ ] Warehouse / location support
@@ -68,6 +71,7 @@ Goal: Stock correctness, not just quantities.
 
 Goal: Project-based accounting.
 
+- [ ] Find a good dango project to implement
 - [ ] Project structures
 - [ ] Cost and revenue allocation
 - [ ] Budget vs actual tracking
