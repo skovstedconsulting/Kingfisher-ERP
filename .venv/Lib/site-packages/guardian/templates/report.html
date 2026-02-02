@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Guardian report" />
+  <title>Guardian report</title>
+  <link rel="stylesheet" type="text/css" href="static/npm_components/bootstrap/dist/css/bootstrap.min.css" media="screen" />
+  <link rel="stylesheet" type="text/css" href="static/css/custom.css" media="screen" />
+  <script type="text/javascript" src="static/npm_components/popper.js/dist/umd/popper.min.js"></script>
+  <script type="text/javascript" src="static/npm_components/bootstrap/dist/js/bootstrap.min.js"></script>
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-guardian-blue">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="/">
+        Guardian status page
+      </a>
+      <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarSupportedContent">
+        <ul class="navbar-nav mr-auto w-100 justify-content-end">
+          <li class="nav-item">
+            <a class="nav-link" href="https://git.sr.ht/~cedric/guardian" title="source code"  target="_blank" rel="noopener noreferrer">source code</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  <br />
+  <div class="container">
+    <div class="row">
+      <div class="col">
+        <h1>Availability report</h1>
+        <ul class="list-group">
+          {% for report in reports %}
+          {% if report["is_ok"] %}
+          <li class="list-group-item list-group-item-success d-flex justify-content-between align-items-center">
+            {{ report["service_name"] }}
+            <span class="badge bg-primary rounded-pill">{{ report["nb_test"] }} test{{ "s" if report["nb_test"] > 1 else "" }}</span>
+          </li>
+          {% else %}
+          <li class="list-group-item list-group-item-danger d-flex justify-content-between align-items-center">
+            {{ report["service_name"] }}
+            &nbsp;-&nbsp; Problems: {{ ", ".join(report["errors"]) }}
+            <span class="badge bg-primary rounded-pill">{{ report["nb_test"] }} test{{ "s" if report["nb_test"] > 1 else "" }}</span>
+          </li>
+          {% endif %}
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+    <br />
+    <div class="row">
+      <div class="col">
+        Report generated at: {{ end_date }} in {{ time.total_seconds() }} seconds.
+      </div>
+    </div>
+  </div>
+  <br />
+  <footer class="footer">
+    <div class="container-fluid">
+      <div class="row">
+        <div class="col">
+          <a href="https://git.sr.ht/~cedric/guardian" title="source code"  target="_blank" rel="noopener noreferrer">Guardian source code</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

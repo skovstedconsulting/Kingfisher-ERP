@@ -1,0 +1,26 @@
+name: "Description of the services"
+
+services:
+  Service Newspipe:
+    tests:
+      Test about page:
+        probe: "curl -IL https://www.newspipe.org/about/more 2>/dev/null | head -n 1 | cut -d$' ' -f2"
+        expected: "200"
+
+  Service MOSP:
+    tests:
+      Test main page:
+        probe: "curl -IL https://objects.monarc.lu 2>/dev/null | head -n 1 | cut -d$' ' -f2"
+        expected: "200"
+      Test search with API v2:
+        probe: 'curl --silent -X GET "https://objects.monarc.lu/api/v2/organization/?name=MONARC&page=1&per_page=10" -H  "accept: application/json" | jq  .metadata.count'
+        expected: '"1"'
+      Test API v1:
+        probe: "curl -IL https://objects.monarc.lu/api/v1/organization/ 2>/dev/null | head -n 1 | cut -d$' ' -f2"
+        expected: "404"
+
+  Freshermeat:
+    tests:
+      Test main page:
+        probe: "curl -IL https://open-source-security-software.net 2>/dev/null | head -n 1 | cut -d$' ' -f2"
+        expected: "200"
