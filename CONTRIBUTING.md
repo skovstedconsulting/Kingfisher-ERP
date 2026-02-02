@@ -1,6 +1,6 @@
 # Contributing
 
-First of all: **thank you for being here** ❤️  
+First of all: **thank you for being here** 
 This project exists because ERP systems are too important to be left only to “clever code”.
 
 If you have **ERP, accounting, finance, logistics, VAT, or business-process knowledge**, you are *especially* welcome — even if you don’t consider yourself a programmer.
