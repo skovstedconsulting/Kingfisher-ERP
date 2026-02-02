@@ -18,12 +18,15 @@ ALLOWED_HOSTS = ["*"]
 
 INSTALLED_APPS = [
     # Django
+    "django_object_actions",
+
     "django.contrib.admin.apps.AdminConfig",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    
 
     # Third-party
     #"unfold",
@@ -33,6 +36,7 @@ INSTALLED_APPS = [
     "simple_history",
     "django_fsm",
     "django_fsm_log",
+
 
     # Local apps
     "core",

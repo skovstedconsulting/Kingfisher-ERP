@@ -18,6 +18,8 @@
     const LINE_SEL = 'input[id$="-line_no"]';
     const DESC_SEL = 'input[id$="-description"]';
     const PRICE_SEL = 'input[id$="-unit_price_tx"]';
+    
+    const VAT_SEL = 'select[id$="-vat_code"]';
 
     // Cache defaults per itemId to avoid repeated fetches
     const defaultsCache = new Map();
@@ -64,9 +66,11 @@ function getDefaults(itemId) {
 
       const $desc = $row.find(DESC_SEL);
       const $price = $row.find(PRICE_SEL);
+      const $vat = $row.find(VAT_SEL);
 
       if ($desc.length) $desc.val(data.description || "");
       if ($price.length) $price.val(data.unit_price_tx || "0.00");
+      if ($vat.length) $vat.val(data.vat_code || "");
     }
 
     function ensureNextLineNo($table) {
@@ -105,6 +109,7 @@ function getDefaults(itemId) {
       const $el = $(el);
       const itemId = $el.val();
       const $row = $el.closest("tr.form-row");
+      
 
       // Optional: also allocate line number when item is chosen
       allocateLineNo($row);
