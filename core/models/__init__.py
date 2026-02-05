@@ -7,3 +7,4 @@ from .iso_codes import IsoCountryCodes, IsoCurrencyCodes
 from .coa_template import ChartOfAccountsTemplate, ChartOfAccountsNode
 from .vat import VatGroup, VatCode
 from .exchange_rate import ExchangeRate
+from .menu import Menu

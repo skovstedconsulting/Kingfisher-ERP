@@ -20,6 +20,9 @@ INSTALLED_APPS = [
     # Django
     "django_object_actions",
 
+    'taggit',
+    'modelcluster',
+
     "django.contrib.admin.apps.AdminConfig",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -27,16 +30,12 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     
-
-    # Third-party
-    #"unfold",
     "guardian",
     "mptt",
     "django_filters",
     "simple_history",
     "django_fsm",
     "django_fsm_log",
-
 
     # Local apps
     "core",
@@ -64,7 +63,7 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -101,6 +100,9 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

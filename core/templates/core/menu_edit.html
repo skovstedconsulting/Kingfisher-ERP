@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Menu editor</h1>
+
+<form method="post" id="menu-form">
+  {% csrf_token %}
+
+  <p>{{ form.menu.label_tag }}<br>{{ form.menu }}</p>
+  <p>{{ form.parent.label_tag }}<br>{{ form.parent }}</p>
+  <p>{{ form.sort_order.label_tag }}<br>{{ form.sort_order }}</p>
+
+  <p>
+    <label for="url-search">Search URL</label><br>
+    <input id="url-search" type="text" placeholder="Type to filter URLs…" autocomplete="off">
+  </p>
+
+  <p>{{ form.url.label_tag }}<br>{{ form.url }}</p>
+
+  <p>{{ form.active.label_tag }} {{ form.active }}</p>
+
+  <button type="submit">Save</button>
+</form>
+
+{% if editing %}
+  <form method="post" action="{% url 'core:menu-delete' editing.id %}" style="margin-top:10px;">
+    {% csrf_token %}
+    <button type="submit" onclick="return confirm('Delete {{ editing.menu }}?')">
+      Delete
+    </button>
+  </form>
+{% endif %}
+
+<hr>
+
+<h2>Existing menus</h2>
+<ul>
+  {% for menu in all_menus %}
+    <li>
+      [{{ menu.sort_order }}] {{ menu.menu }}
+      {% if menu.parent %} (child of {{ menu.parent.menu }}){% endif %}
+      –
+      <a href="{% url 'core:menu-edit' menu.id %}">Edit</a>
+    </li>
+  {% endfor %}
+</ul>
+
+<script>
+  (function () {
+    const select = document.getElementById("id_url");
+    const search = document.getElementById("url-search");
+    if (!select || !search) return;
+
+    const allOptions = Array.from(select.options).map(o => ({ value: o.value, text: o.text }));
+
+    function renderOptions(filtered) {
+      const current = select.value;
+      select.innerHTML = "";
+      for (const opt of filtered) {
+        const o = document.createElement("option");
+        o.value = opt.value;
+        o.textContent = opt.text;
+        select.appendChild(o);
+      }
+      if (Array.from(select.options).some(o => o.value === current)) select.value = current;
+    }
+
+    function filterOptions() {
+      const q = search.value.trim().toLowerCase();
+      if (!q) return renderOptions(allOptions);
+
+      const placeholder = allOptions.find(o => o.value === "");
+      const filtered = allOptions.filter(o =>
+        o.text.toLowerCase().includes(q) || o.value.toLowerCase().includes(q)
+      );
+      renderOptions(placeholder ? [placeholder, ...filtered.filter(o => o.value !== "")] : filtered);
+    }
+
+    search.addEventListener("input", filterOptions);
+  })();
+</script>
+{% endblock %}

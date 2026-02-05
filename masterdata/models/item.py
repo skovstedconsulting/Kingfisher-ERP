@@ -8,6 +8,8 @@ class ItemGroup(models.Model):
     code = models.CharField(max_length=50)
     name = models.CharField(max_length=255)
 
+    isDefault = models.BooleanField(default=False)
+
     # VAT defaults
     default_sales_vat_code = models.ForeignKey("core.VatCode", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
     default_purchase_vat_code = models.ForeignKey("core.VatCode", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
@@ -37,6 +39,15 @@ class Item(models.Model):
 
     sales_price = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
     purchase_cost = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
+
+    ean = models.CharField(
+            max_length=13,
+            blank=True,
+            null=True,
+            db_index=True,
+            unique=True,  # remove if you don't want uniqueness enforced
+            help_text="EAN-13 barcode (13 digits)",
+        )
 
     class Meta:
         unique_together = ("entity", "number")

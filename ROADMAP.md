@@ -37,7 +37,6 @@ Goal: Operational flows that feed accounting.
 - [x] Payment allocation & settlement
 - [x] Purchase orders
 - [ ] Goods receipt
-- [ ] Find a good dango project to implement to handle prices, could it be oscar
 - [ ] Pricelist
 - [ ] Pricelist nesting
 - [x] Convert documents: Offer -> Order -> Invioce
@@ -59,7 +58,6 @@ Goal: Handle and reconsile bank accounts.
 Goal: Stock correctness, not just quantities.
 
 - [x] Items
-- [ ] Find a good dango project to implement to handle variants, could it be oscar
 - [ ] Variants, units
 - [ ] Stock movements
 - [ ] Valuation methods
@@ -95,4 +93,5 @@ Goal: Ecosystem over monolith.
 Goal: Alternative UIs beyond Django Admin.
 
 - [ ] API-first UI
-- [ ] Reference frontend (optional)
+- [x] Simple user UI
+

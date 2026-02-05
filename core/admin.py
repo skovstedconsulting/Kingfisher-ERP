@@ -9,6 +9,8 @@ from core.models import Entity, UserProfile, NumberSeries, Account
 
 from core.models.iso_codes import IsoCountryCodes
 from core.models.iso_codes import IsoCurrencyCodes
+from core.models.vat import VatCode, VatGroup
+from core.models.menu import Menu
 
 @admin.register(Entity)
 class EntityAdmin(GuardedModelAdmin, admin.ModelAdmin):
@@ -43,3 +45,18 @@ class IsoCurrencyCodesAdmin(EntityScopedAdminMixin, GuardedModelAdmin, admin.Mod
     
     search_fields = ("code", "name")
 
+@admin.register(VatCode)
+class VatCodeAdmin(EntityScopedAdminMixin, GuardedModelAdmin, admin.ModelAdmin):
+    list_display = ("entity", "code", "name")
+    list_filter = ("entity",)
+    search_fields = ("code", "name")
+
+@admin.register(VatGroup)
+class VatGroupAdmin(EntityScopedAdminMixin, GuardedModelAdmin, admin.ModelAdmin):
+    list_display = ("entity", "code", "name")
+    list_filter = ("entity",)
+    search_fields = ("code", "name")
+
+@admin.register(Menu)
+class MenuAdmin(EntityScopedAdminMixin, GuardedModelAdmin, admin.ModelAdmin):
+    list_display = ( "menu","parent","url","active", "created_at")

@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard – Kingfisher ERP{% endblock %}
+
+{% block content %}
+<h1>Dashboard</h1>
+
+
+
+<div style="margin: 10px 0 16px 0;">
+  <label for="fySelect"><strong>Financial year:</strong></label>
+  <select id="fySelect">
+    {% for fy in fy_options %}
+        <option value="{{ fy }}" {% if fy == selected_fy %}selected{% endif %}>
+        FY {{ fy }} ({{ fy }}-01 → {{ fy }}-12)
+        </option>
+    {% endfor %}
+  </select>
+
+  <span style="margin-left:10px; opacity:0.75;">
+    {{ fy_start }} → {{ fy_end }}
+  </span>
+</div>
+
+<style>
+  .grid { display: grid; gap: 12px; }
+  .tiles { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .card {
+    border: 1px solid #ddd; border-radius: 10px; padding: 12px;
+    background: #fff;
+  }
+  .kpi-label { font-size: 0.9rem; opacity: 0.75; margin-bottom: 6px; }
+  .kpi-value { font-size: 1.6rem; font-weight: 700; }
+  .chart-wrap { margin-top: 12px; }
+  canvas { width: 100%; height: 280px; border: 1px solid #ddd; border-radius: 10px; background: #fff; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; }
+  th { background: #f6f6f6; }
+</style>
+
+<div class="grid tiles">
+  <div class="card">
+    <div class="kpi-label">Revenue (12M)</div>
+    <div class="kpi-value">{{ revenue_total }}</div>
+  </div>
+  <div class="card">
+    <div class="kpi-label">Expenses (12M)</div>
+    <div class="kpi-value">{{ expenses_total }}</div>
+  </div>
+  <div class="card">
+    <div class="kpi-label">Result (12M)</div>
+    <div class="kpi-value">{{ result_total }}</div>
+  </div>
+
+  <div class="card">
+    <div class="kpi-label">Invoices Open</div>
+    <div class="kpi-value">{{ invoice_open }}</div>
+  </div>
+  <div class="card">
+    <div class="kpi-label">Invoices Paid</div>
+    <div class="kpi-value">{{ invoice_paid }}</div>
+  </div>
+  <div class="card">
+    <div class="kpi-label">Invoices Draft</div>
+    <div class="kpi-value">{{ invoice_draft }}</div>
+  </div>
+</div>
+
+<div class="chart-wrap">
+  <h2>Result over time (12 months)</h2>
+  <canvas id="resultChart" width="900" height="280"></canvas>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Month</th>
+      <th>Revenue</th>
+      <th>Expenses</th>
+      <th>Result</th>
+    </tr>
+  </thead>
+  <tbody id="seriesTable"></tbody>
+</table>
+
+<script>
+
+
+  const fySelect = document.getElementById("fySelect");
+  if (fySelect) {
+    fySelect.addEventListener("change", () => {
+      const url = new URL(window.location.href);
+      url.searchParams.set("fy", fySelect.value);
+      window.location.href = url.toString();
+    });
+  }
+
+  const series = {{ series_json|safe }};
+
+  // Fill table
+  const tbody = document.getElementById("seriesTable");
+  for (const row of series) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${row.month}</td>
+      <td>${row.revenue.toFixed(2)}</td>
+      <td>${row.expenses.toFixed(2)}</td>
+      <td>${row.result.toFixed(2)}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  // Vanilla JS canvas chart (line: result)
+  const canvas = document.getElementById("resultChart");
+  const ctx = canvas.getContext("2d");
+
+  function draw() {
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    const padding = 40;
+    const xs = series.map((_, i) => padding + (i * (w - padding * 2)) / Math.max(series.length - 1, 1));
+    const ys = series.map(r => r.result);
+
+    const minY = Math.min(...ys, 0);
+    const maxY = Math.max(...ys, 0);
+    const span = (maxY - minY) || 1;
+
+    function yToPx(v) {
+      return (h - padding) - ((v - minY) / span) * (h - padding * 2);
+    }
+
+    // axes
+    ctx.beginPath();
+    ctx.moveTo(padding, padding);
+    ctx.lineTo(padding, h - padding);
+    ctx.lineTo(w - padding, h - padding);
+    ctx.stroke();
+
+    // zero line
+    const zeroY = yToPx(0);
+    ctx.beginPath();
+    ctx.moveTo(padding, zeroY);
+    ctx.lineTo(w - padding, zeroY);
+    ctx.setLineDash([4, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // line
+    ctx.beginPath();
+    xs.forEach((x, i) => {
+      const y = yToPx(ys[i]);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // points
+    xs.forEach((x, i) => {
+      const y = yToPx(ys[i]);
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // x labels (every 2nd month)
+    ctx.font = "12px system-ui";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    series.forEach((r, i) => {
+      if (i % 2 === 0 || i === series.length - 1) {
+        ctx.fillText(r.month, xs[i], h - padding + 6);
+      }
+    });
+
+    // y labels (min/0/max)
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    ctx.fillText(maxY.toFixed(0), padding - 6, yToPx(maxY));
+    ctx.fillText("0", padding - 6, yToPx(0));
+    ctx.fillText(minY.toFixed(0), padding - 6, yToPx(minY));
+  }
+
+  draw();
+</script>
+{% endblock %}

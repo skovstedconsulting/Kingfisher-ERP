@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<h1>Items</h1>
+
+{% if messages %}
+  <ul class="messages">
+    {% for message in messages %}
+      <li class="{{ message.tags }}">{{ message }}</li>
+    {% endfor %}
+  </ul>
+{% endif %}
+
+<h2>Create item</h2>
+<form method="post" novalidate>
+  {% csrf_token %}
+  <table>
+    {{ form.as_table }}
+  </table>
+  <button type="submit">Create item</button>
+</form>
+
+<hr>
+
+<h2>All items</h2>
+
+<!-- 🔎 Filters -->
+<div style="margin: 12px 0; display: flex; gap: 10px; flex-wrap: wrap;">
+  <div>
+    <label for="fNumber">Number</label><br>
+    <input id="fNumber" type="text" placeholder="Search number">
+  </div>
+
+  <div>
+    <label for="fName">Name</label><br>
+    <input id="fName" type="text" placeholder="Search name">
+  </div>
+
+  <div>
+    <label for="fGroup">Group</label><br>
+    <input id="fGroup" type="text" placeholder="Search group">
+  </div>
+
+  <div>
+    <label for="fStock">Stock</label><br>
+    <select id="fStock">
+      <option value="">All</option>
+      <option value="yes">Yes</option>
+      <option value="no">No</option>
+    </select>
+  </div>
+
+  <div style="align-self: end;">
+    <button type="button" id="clearFilters">Clear</button>
+  </div>
+</div>
+
+<table id="itemsTable" border="1" cellpadding="6" cellspacing="0">
+  <thead>
+    <tr>
+      <th>Number</th>
+      <th>Name</th>
+      <th>Group</th>
+      <th>Stock</th>
+      <th>Sales price</th>
+      <th>Purchase cost</th>
+      <th>EAN</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    {% for item in items %}
+      <tr>
+        <td class="col-number">{{ item.number }}</td>
+        <td class="col-name">{{ item.name }}</td>
+        <td class="col-group">{{ item.group }}</td>
+        <td class="col-stock">{{ item.is_stock_item|yesno:"Yes,No" }}</td>
+        <td>{{ item.sales_price }}</td>
+        <td>{{ item.purchase_cost }}</td>
+        <td>{{ item.ean }}</td>
+        <td>
+          <form
+            method="post"
+            action="{% url 'masterdata:item-delete' item.pk %}"
+            style="display:inline"
+            onsubmit="return confirm('Delete item {{ item.number }}?');"
+          >
+            {% csrf_token %}
+            <button type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+    {% empty %}
+      <tr>
+        <td colspan="9">No items yet.</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<p id="itemsCount" style="margin-top: 10px;"></p>
+
+<script>
+(function () {
+  const table = document.getElementById("itemsTable");
+  if (!table) return;
+
+  const fNumber = document.getElementById("fNumber");
+  const fName   = document.getElementById("fName");
+  const fGroup  = document.getElementById("fGroup");
+  const fStock  = document.getElementById("fStock");
+  const clearBtn = document.getElementById("clearFilters");
+  const countEl = document.getElementById("itemsCount");
+
+  const rows = Array.from(table.querySelectorAll("tbody tr"));
+
+  function norm(s) {
+    return (s || "").toString().trim().toLowerCase();
+  }
+
+  function textInCell(row, selector) {
+    const el = row.querySelector(selector);
+    return norm(el ? el.textContent : "");
+  }
+
+  function applyFilters() {
+    const qNumber = norm(fNumber.value);
+    const qName   = norm(fName.value);
+    const qGroup  = norm(fGroup.value);
+    const qStock  = norm(fStock.value); // "", "yes", "no"
+
+    let visible = 0;
+
+    for (const row of rows) {
+      // skip the "No items yet" row (colspan row) — it has no .col-number
+      if (!row.querySelector(".col-number")) continue;
+
+      const number = textInCell(row, ".col-number");
+      const name   = textInCell(row, ".col-name");
+      const group  = textInCell(row, ".col-group");
+
+      const stock  = textInCell(row, ".col-stock"); // "yes" or "no" due to norm()
+
+      const match =
+        (!qNumber || number.includes(qNumber)) &&
+        (!qName   || name.includes(qName)) &&
+        (!qGroup  || group.includes(qGroup)) &&
+        (!qStock  || stock === qStock);
+
+      row.style.display = match ? "" : "none";
+      if (match) visible++;
+    }
+
+    if (countEl) {
+      countEl.textContent = `Showing ${visible} item(s).`;
+    }
+  }
+
+  function clearFilters() {
+    fNumber.value = "";
+    fName.value = "";
+    fGroup.value = "";
+    fStock.value = "";
+    applyFilters();
+  }
+
+  [fNumber, fName, fGroup].forEach(el => {
+    el.addEventListener("input", applyFilters);
+  });
+  fStock.addEventListener("change", applyFilters);
+  clearBtn.addEventListener("click", clearFilters);
+
+  // Initial count
+  applyFilters();
+})();
+</script>
+
+{% endblock %}

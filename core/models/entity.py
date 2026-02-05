@@ -43,6 +43,10 @@ class UserProfile(models.Model):
     """Connect a user to an Entity."""
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile")
     entity = models.ForeignKey("core.Entity", on_delete=models.CASCADE, related_name="users")
+    
+    image_url = models.URLField(max_length=512, blank=True)
+    address = models.TextField(blank=True)
+
     is_entity_admin = models.BooleanField(default=False)
 
     def __str__(self):

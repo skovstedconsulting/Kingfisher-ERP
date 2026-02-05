@@ -1,9 +1,12 @@
 from django.db import models
+from django.core.management.base import BaseCommand
+from core.models import Entity
 
 class CreditorGroup(models.Model):
     entity = models.ForeignKey("core.Entity", on_delete=models.CASCADE, related_name="creditor_groups")
     code = models.CharField(max_length=50)
     name = models.CharField(max_length=255)
+    isDefault = models.BooleanField(default=False)
 
     class Meta:
         unique_together = ("entity", "code")

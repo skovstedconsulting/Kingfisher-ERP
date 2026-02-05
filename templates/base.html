@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>{% block title %}Kingfisher ERP{% endblock %}</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    {% block extra_head %}{% endblock %}
+
+    <style>
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  header {
+    background: #1f2937;
+    color: white;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  /* NAV CONTAINER */
+  nav {
+    background: #374151;
+    padding: 8px 16px;
+  }
+
+  /* TOP LEVEL LIST */
+  nav > ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  nav > ul > li {
+    position: relative; /* needed for dropdown positioning */
+  }
+
+  /* LINKS / LABELS */
+  nav a,
+  nav span {
+    color: #e5e7eb;
+    text-decoration: none;
+    font-weight: 500;
+    display: inline-block;
+    padding: 6px 8px;
+    border-radius: 6px;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  nav a:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+/* DROPDOWN (SECOND LEVEL) */
+nav ul ul {
+  list-style: none;
+  margin: 0;                 /* ✅ remove gap */
+  padding: 6px;
+  min-width: 200px;
+
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);     /* ✅ keep spacing without gap */
+
+  background: #111827;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+
+  display: none;
+  z-index: 9999;
+}
+
+/* hover bridge (prevents flicker) */
+nav > ul > li::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 100%;
+  width: 100%;
+  height: 10px;
+}
+
+/* show dropdown on hover/focus */
+nav > ul > li:hover > ul,
+nav > ul > li:focus-within > ul {
+  display: block;
+}
+
+  /* show dropdown on hover (desktop) */
+  nav > ul > li:hover > ul {
+    display: block;
+  }
+
+  /* OPTIONAL: a small arrow for parents that have children */
+  nav > ul > li:has(ul) > a::after,
+  nav > ul > li:has(ul) > span::after {
+    content: " ▾";
+    opacity: 0.8;
+    font-weight: 600;
+  }
+
+  /* RIGHT SIDE LINKS (Menu editor / Admin) */
+  nav .nav-right {
+    margin-left: auto;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  main {
+    padding: 16px;
+  }
+
+  .user-info {
+    font-size: 0.9em;
+    opacity: 0.85;
+  }
+
+  /* small screens: stack, keep dropdowns inline */
+  @media (max-width: 700px) {
+    nav > ul {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    nav > ul > li {
+      width: 100%;
+    }
+
+    nav ul ul {
+      position: static;
+      display: block;
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      padding: 0 0 0 12px;
+      margin: 4px 0 0;
+      min-width: 0;
+    }
+
+    nav ul ul a,
+    nav ul ul span {
+      padding: 6px 8px;
+    }
+  }
+
+  #url-search {
+  width: 320px;
+  max-width: 100%;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(0,0,0,0.2);
+}
+</style>
+
+</head>
+<body>
+
+<header>
+    <strong>Kingfisher ERP</strong>
+
+    {% if user.is_authenticated %}
+        <span class="user-info">
+            {{ user.username }}
+            {% if user.profile.entity %}
+                &nbsp;|&nbsp; {{ user.profile.entity }}
+            {% endif %}
+        </span>
+    {% endif %}
+</header>
+
+{% if user.is_authenticated %}
+<nav class="topnav">
+  <ul class="topnav__list">
+    {% for menu in menus %}
+      <li class="topnav__item {% if menu.children.exists %}has-children{% endif %}">
+        {% if menu.url %}
+          <a class="topnav__link" href="{{ menu.url }}">{{ menu.menu }}</a>
+        {% else %}
+          <span class="topnav__link">{{ menu.menu }}</span>
+        {% endif %}
+
+        {% if menu.children.exists %}
+          <ul class="topnav__dropdown">
+            {% for child in menu.children.all %}
+              <li class="topnav__dropdown-item">
+                {% if child.url %}
+                  <a class="topnav__dropdown-link" href="{{ child.url }}">{{ child.menu }}</a>
+                {% else %}
+                  <span class="topnav__dropdown-link">{{ child.menu }}</span>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+</nav>
+{% endif %}
+
+
+
+{% if messages %}
+    <ul class="messages">
+        {% for message in messages %}
+            <li class="{{ message.tags }}">{{ message }}</li>
+        {% endfor %}
+    </ul>
+{% endif %}
+
+<main>
+    {% block content %}{% endblock %}
+</main>
+
+{% block extra_js %}{% endblock %}
+
+</body>
+</html>

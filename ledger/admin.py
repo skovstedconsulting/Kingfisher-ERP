@@ -9,6 +9,7 @@ from ledger.services.settlement import sync_sales_doc_payment_state
 from django.db import transaction
 from django.db.models import Q
 
+from . import admin_customer_saldo, admin_creditor_saldo, admin_items_overview
 
 class JournalLineInline(admin.TabularInline):
     model = JournalLine
@@ -31,13 +32,13 @@ class JournalAdmin(EntityScopedAdminMixin, GuardedModelAdmin, admin.ModelAdmin):
 
 @admin.register(JournalLine)
 class JournalLineAdmin(EntityScopedAdminMixin, GuardedModelAdmin, admin.ModelAdmin):
-    list_display = ("id","account", "description", "debit_base", "credit_base", "currency")
+    list_display = ("id","journal", "account", "description", "debit_base", "credit_base", "currency")
     #list_filter = ("entity", "state")
     #search_fields = ("number", "reference")
 
 @admin.register(OpenItem)
 class OpenItemAdmin(EntityScopedAdminMixin, GuardedModelAdmin, admin.ModelAdmin):
-    list_display = ("entity", "kind", "debtor", "creditor", "remaining_base", "currency")
+    list_display = ("entity", "kind", "debtor", "creditor", "remaining_base", "remaining_tx", "currency")
     list_filter = ("entity", "kind", "debtor", "creditor")
     search_fields = ("id",)
 

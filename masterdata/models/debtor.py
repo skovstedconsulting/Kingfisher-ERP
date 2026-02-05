@@ -6,6 +6,8 @@ class DebtorGroup(models.Model):
     entity = models.ForeignKey("core.Entity", on_delete=models.CASCADE, related_name="debtor_groups")
     code = models.CharField(max_length=50)
     name = models.CharField(max_length=255)
+    
+    isDefault = models.BooleanField(default=False)
 
     ar_account = models.ForeignKey("core.Account", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
     payment_terms_days = models.IntegerField(default=14)
