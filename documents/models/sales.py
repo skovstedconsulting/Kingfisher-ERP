@@ -6,6 +6,8 @@ from django_fsm import FSMField, transition
 from simple_history.models import HistoricalRecords
 from django_fsm_log.decorators import fsm_log_by
 from decimal import Decimal
+from django.db.models import F, Sum, DecimalField, ExpressionWrapper
+from django.db.models.functions import Coalesce
 
 class SalesDocument(models.Model):
     """Sales document with state machine.
@@ -84,6 +86,32 @@ class SalesDocument(models.Model):
         """
         return self.invoice_no or self.order_no or self.offer_no or str(self.pk)
 
+    def recalc_totals(self, save=True):
+        """
+        Recalculate totals from lines.
+        - total_tx = sum(qty * unit_price_tx)
+        - total_base = currently same as total_tx (until you add FX conversion)
+        """
+        line_amount = ExpressionWrapper(
+            F("qty") * F("unit_price_tx"),
+            output_field=DecimalField(max_digits=18, decimal_places=2),
+        )
+
+        agg = self.lines.aggregate(
+            total=Coalesce(Sum(line_amount), Decimal("0.00"))
+        )
+
+        total_tx = (agg["total"] or Decimal("0.00")).quantize(Decimal("0.01"))
+        self.total_tx = total_tx
+
+        # TODO: replace with FX conversion if currency != entity.base_currency
+        self.total_base = total_tx
+
+        if save:
+            self.save(update_fields=["total_tx", "total_base"])
+
+        return self.total_tx, self.total_base
+    
     def _ensure_lines(self):
         """Posting/transition precondition: document must have at least one line."""
         if not self.lines.exists():

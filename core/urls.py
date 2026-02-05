@@ -8,5 +8,5 @@ urlpatterns = [
     path("profile/", profile_edit, name="profile"),
     path("menus/", menu_edit, name="menu-edit"),
     path("menus/<int:pk>/", menu_edit, name="menu-edit"),
-   path("menus/<int:pk>/delete/", menu_delete, name="menu-delete"),
+    path("menus/<int:pk>/delete/", menu_delete, name="menu-delete"),
 ]

@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<h1>Debtors</h1>
+
+<h2>Create debtor</h2>
+
+
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+  <table>{{ form.as_table }}</table>
+  <button type="submit">Create debtor</button>
+  {% if next %}<a href="{{ next }}" style="margin-left:10px;">Cancel</a>{% endif %}
+</form>
+
+<hr>
+
+<h2>All debtors</h2>
+
+<!-- 🔎 Filters -->
+<div style="margin: 12px 0; display: flex; gap: 10px; flex-wrap: wrap;">
+  <div>
+    <label for="fNumber">Number</label><br>
+    <input id="fNumber" type="text" placeholder="Search number">
+  </div>
+
+  <div>
+    <label for="fName">Name</label><br>
+    <input id="fName" type="text" placeholder="Search name">
+  </div>
+
+  <div>
+    <label for="fGroup">Group</label><br>
+    <input id="fGroup" type="text" placeholder="Search group">
+  </div>
+
+  <div>
+    <label for="fVat">VAT area</label><br>
+    <input id="fVat" type="text" placeholder="Search vat area (DK, EU_B2B...)">
+  </div>
+
+  <div style="align-self: end;">
+    <button type="button" id="clearFilters">Clear</button>
+  </div>
+</div>
+
+<table id="debtorsTable" border="1" cellpadding="6" cellspacing="0" width="100%">
+  <thead>
+    <tr>
+      <th>Number</th>
+      <th>Name</th>
+      <th>Group</th>
+      <th>VAT area</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    {% for d in debtors %}
+      <tr>
+        <td class="col-number">{{ d.number }}</td>
+        <td class="col-name">{{ d.name }}</td>
+        <td class="col-group">{{ d.group }}</td>
+        <td class="col-vat">{{ d.vat_area }}</td>
+        <td>
+          <a href="{% url 'masterdata:debtor-detail' d.pk %}">View</a>
+
+          <form
+            method="post"
+            action="{% url 'masterdata:debtor-delete' d.pk %}"
+            style="display:inline"
+            onsubmit="return confirm('Delete debtor {{ d.number }}?');"
+          >
+            {% csrf_token %}
+            <button type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+    {% empty %}
+      <tr>
+        <td colspan="5">No debtors yet.</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<p id="debtorsCount" style="margin-top: 10px;"></p>
+
+<script>
+(function () {
+  const table = document.getElementById("debtorsTable");
+  if (!table) return;
+
+  const fNumber = document.getElementById("fNumber");
+  const fName   = document.getElementById("fName");
+  const fGroup  = document.getElementById("fGroup");
+  const fVat    = document.getElementById("fVat");
+  const clearBtn = document.getElementById("clearFilters");
+  const countEl = document.getElementById("debtorsCount");
+
+  const rows = Array.from(table.querySelectorAll("tbody tr"));
+
+  function norm(s) {
+    return (s || "").toString().trim().toLowerCase();
+  }
+
+  function textInCell(row, selector) {
+    const el = row.querySelector(selector);
+    return norm(el ? el.textContent : "");
+  }
+
+  function applyFilters() {
+    const qNumber = norm(fNumber.value);
+    const qName   = norm(fName.value);
+    const qGroup  = norm(fGroup.value);
+    const qVat    = norm(fVat.value);
+
+    let visible = 0;
+
+    for (const row of rows) {
+      if (!row.querySelector(".col-number")) continue;
+
+      const number = textInCell(row, ".col-number");
+      const name   = textInCell(row, ".col-name");
+      const group  = textInCell(row, ".col-group");
+      const vat    = textInCell(row, ".col-vat");
+
+      const match =
+        (!qNumber || number.includes(qNumber)) &&
+        (!qName   || name.includes(qName)) &&
+        (!qGroup  || group.includes(qGroup)) &&
+        (!qVat    || vat.includes(qVat));
+
+      row.style.display = match ? "" : "none";
+      if (match) visible++;
+    }
+
+    if (countEl) countEl.textContent = `Showing ${visible} debtor(s).`;
+  }
+
+  function clearFilters() {
+    fNumber.value = "";
+    fName.value = "";
+    fGroup.value = "";
+    fVat.value = "";
+    applyFilters();
+  }
+
+  [fNumber, fName, fGroup, fVat].forEach(el => el.addEventListener("input", applyFilters));
+  clearBtn.addEventListener("click", clearFilters);
+
+  applyFilters();
+})();
+</script>
+
+{% endblock %}

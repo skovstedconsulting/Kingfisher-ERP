@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+
+<h1>
+  {% if form.instance.pk %}
+    Edit sales document
+    {% if doc %}
+      {% if doc.state == "posted" or doc.state == "partly_paid" or doc.state == "paid" %}🔒{% endif %}
+    {% endif %}
+  {% else %}
+    New sales document
+  {% endif %}
+</h1>
+
+{% if doc %}
+  {% if doc.state == "posted" or doc.state == "partly_paid" or doc.state == "paid" %}
+    <p style="padding:10px;border:1px solid #ccc;background:#f7f7f7;">
+      🔒 This document is <strong>{{ doc.get_state_display }}</strong> and is locked (read-only).
+    </p>
+  {% endif %}
+{% endif %}
+
+<form method="post">
+  {% csrf_token %}
+
+  {# disable fields if locked #}
+  <fieldset
+    {% if doc %}
+      {% if doc.state == "posted" or doc.state == "partly_paid" or doc.state == "paid" %}disabled{% endif %}
+    {% endif %}
+  >
+    <legend>Document</legend>
+
+    {{ form.non_field_errors }}
+
+    <p>
+      {{ form.date.label_tag }}<br>
+      {{ form.date }}
+      {{ form.date.errors }}
+    </p>
+    <p>
+      {{ form.debtor.label_tag }}<br>
+
+      {{ form.debtor }}
+        <a href="{% url 'masterdata:debtor-list' %}?next={{ request.get_full_path|urlencode }}" style="margin-left:8px; font-size:0.9em;">+ Create debtor</a>
+      {{ form.debtor.errors }}
+    </p>
+
+    <p>
+      {{ form.currency.label_tag }}<br>
+      {{ form.currency }}
+      {{ form.currency.errors }}
+    </p>
+
+    <p>
+      {{ form.reference.label_tag }}<br>
+      {{ form.reference }}
+      {{ form.reference.errors }}
+    </p>
+  </fieldset>
+
+  <fieldset
+    {% if doc %}
+      {% if doc.state == "posted" or doc.state == "partly_paid" or doc.state == "paid" %}disabled{% endif %}
+    {% endif %}
+  >
+    <legend>Lines</legend>
+
+    {{ formset.management_form }}
+    {{ formset.non_form_errors }}
+
+    <table border="1" cellpadding="6" cellspacing="0" width="100%">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Description</th>
+          <th style="width:100px">Qty</th>
+          <th style="width:120px">Unit price</th>
+          <th>VAT</th>
+          <th>Delete</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for line_form in formset %}
+          <tr>
+            {% for hidden in line_form.hidden_fields %}
+              {{ hidden }}
+            {% endfor %}
+
+            <td>{{ line_form.item }}{{ line_form.item.errors }}</td>
+            <td>{{ line_form.description }}{{ line_form.description.errors }}</td>
+            <td>{{ line_form.qty }}{{ line_form.qty.errors }}</td>
+            <td>{{ line_form.unit_price_tx }}{{ line_form.unit_price_tx.errors }}</td>
+            <td>{{ line_form.vat_code }}{{ line_form.vat_code.errors }}</td>
+
+            <td style="text-align:center">
+              {% if line_form.instance.pk %}
+              {% if doc %}  
+                {% if doc.state == "posted" or doc.state == "partly_paid" or doc.state == "paid" %}
+                  {# NOTE: no parentheses allowed; do it in nested ifs #}
+                {% endif %}
+                {% endif %}
+                {% if doc %}
+                  {% if doc.state == "posted" or doc.state == "partly_paid" or doc.state == "paid" %}
+                    🔒
+                  {% else %}
+                    {{ line_form.DELETE }}
+                  {% endif %}
+                {% else %}
+                  {{ line_form.DELETE }}
+                {% endif %}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <p style="opacity:.7">
+      Tip: description and unit price default from item if left empty.
+    </p>
+  </fieldset>
+
+  <p style="margin-top:20px">
+    {% if doc %}
+      {% if doc.state == "posted" or doc.state == "partly_paid" or doc.state == "paid" %}
+        <button type="submit" disabled>Save</button>
+      {% else %}
+        <button type="submit">Save</button>
+      {% endif %}
+    {% else %}
+      <button type="submit">Save</button>
+    {% endif %}
+
+    <a href="{% url 'documents:sales_document_create' %}">New</a>
+    <a href="javascript:history.back()">Cancel</a>
+  </p>
+</form>
+
+{# Delete document only if doc exists AND not locked #}
+{% if doc %}
+  {% if doc.state == "posted" or doc.state == "partly_paid" or doc.state == "paid" %}
+    {# locked: no delete #}
+  {% else %}
+    <form method="post" action="{% url 'documents:sales_document_delete' doc.pk %}" style="margin-top:10px;">
+      {% csrf_token %}
+      <button type="submit" onclick="return confirm('Delete this document?');">
+        Delete document
+      </button>
+    </form>
+  {% endif %}
+{% endif %}
+
+<hr style="margin: 30px 0;">
+
+<h2>Invoices / Sales documents</h2>
+
+{% if filter_form %}
+  <form method="get" style="margin-bottom:12px;">
+    <strong>Filter:</strong><br>
+
+    <span style="display:inline-block;margin-right:12px;">
+      {{ filter_form.state.label_tag }}<br>
+      {{ filter_form.state }}
+    </span>
+
+    <span style="display:inline-block;margin-right:12px;">
+      {{ filter_form.debtor.label_tag }}<br>
+      {{ filter_form.debtor }}
+    </span>
+
+    <button type="submit">Apply</button>
+    <a href="{% url 'documents:sales_document_create' %}">Reset</a>
+  </form>
+{% endif %}
+
+<table border="1" cellpadding="6" cellspacing="0" width="100%">
+  <thead>
+    <tr>
+      <th>Date</th>
+      <th>No</th>
+      <th>State</th>
+      <th>Debtor</th>
+      <th>Currency</th>
+      <th>Total (base)</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for d in docs %}
+      <tr>
+        <td>{{ d.date }}</td>
+        <td>
+          {{ d.display_no }}
+          {% if d.state == "posted" or d.state == "partly_paid" or d.state == "paid" %} 🔒{% endif %}
+        </td>
+        <td>{{ d.get_state_display }}</td>
+        <td>{{ d.debtor }}</td>
+        <td>{{ d.currency }}</td>
+        <td>{{ d.total_base }}</td>
+        <td>
+          {% if d.state == "posted" or d.state == "partly_paid" or d.state == "paid" %}
+            <span style="opacity:.7">Locked</span>
+            <a href="{% url 'documents:sales_document_edit' d.pk %}">View</a>
+          {% else %}
+            <a href="{% url 'documents:sales_document_edit' d.pk %}">Edit</a>
+
+            <form method="post" action="{% url 'documents:sales_document_action' d.pk %}" style="display:inline;">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+
+              {% if d.state == "offer" %}
+                <button name="action" value="convert_to_order">Convert to order</button>
+              {% elif d.state == "order" %}
+                <button name="action" value="convert_to_invoice">Convert to invoice</button>
+              {% elif d.state == "invoice" %}
+                <button name="action" value="post">Post</button>
+              {% else %}
+                <span style="opacity:.7">—</span>
+              {% endif %}
+            </form>
+
+            <form method="post" action="{% url 'documents:sales_document_delete' d.pk %}" style="display:inline;">
+              {% csrf_token %}
+              <button type="submit" onclick="return confirm('Delete this document?');">
+                Delete
+              </button>
+            </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% empty %}
+      <tr>
+        <td colspan="7" style="text-align:center;opacity:.7">
+          No invoices/documents found.
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}
