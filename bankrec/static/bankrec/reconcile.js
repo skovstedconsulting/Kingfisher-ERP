@@ -10,22 +10,82 @@
   }
   const csrftoken = getCookie("csrftoken");
 
-  // --- Load existing matches from <script id="match-map"> ---
+  // --------------------------
+  // Matches: many-to-many safe maps
+  // --------------------------
+
   const matchMapEl = document.getElementById("match-map");
-  const matchPairs = matchMapEl ? (JSON.parse(matchMapEl.textContent || "{}").pairs || []) : [];
+  const matchMapRaw = matchMapEl ? JSON.parse(matchMapEl.textContent || "{}") : {};
 
-  // Quick lookup:
-  // bankId -> { glId, matchId }
-  // glId   -> { bankId, matchId }
-  const bankToGl = new Map();
-  const glToBank = new Map();
+  // Backwards compat:
+  // old: { pairs: [{bank_id, gl_id, match_id}, ...] }
+  // new: { matches: [{match_id, bank_ids:[..], gl_ids:[..]}, ...] }
+  const matchPairs = matchMapRaw?.pairs || [];
+  const matchGroups = matchMapRaw?.matches || [];
 
-  for (const p of matchPairs) {
-    bankToGl.set(String(p.bank_id), { glId: String(p.gl_id), matchId: String(p.match_id) });
-    glToBank.set(String(p.gl_id), { bankId: String(p.bank_id), matchId: String(p.match_id) });
-  }
+  // matchId -> { bankIds:Set<string>, glIds:Set<string> }
+  const matchIdToGroup = new Map();
+
+  // bankId -> Set<matchId>
+  const bankToMatchIds = new Map();
+
+  // glId -> Set<matchId>
+  const glToMatchIds = new Map();
 
   const byId = (id) => document.getElementById(id);
+
+  function mapAddSet(map, key, val) {
+    key = String(key);
+    val = String(val);
+    if (!map.has(key)) map.set(key, new Set());
+    map.get(key).add(val);
+  }
+
+  function ensureGroup(matchId) {
+    matchId = String(matchId);
+    if (!matchIdToGroup.has(matchId)) {
+      matchIdToGroup.set(matchId, { bankIds: new Set(), glIds: new Set() });
+    }
+    return matchIdToGroup.get(matchId);
+  }
+
+  function addRelation(matchId, bankId, glId) {
+    matchId = String(matchId);
+    bankId = String(bankId);
+    glId = String(glId);
+
+    const g = ensureGroup(matchId);
+    g.bankIds.add(bankId);
+    g.glIds.add(glId);
+
+    mapAddSet(bankToMatchIds, bankId, matchId);
+    mapAddSet(glToMatchIds, glId, matchId);
+  }
+
+  // Ingest NEW grouped format
+  for (const m of matchGroups) {
+    const matchId = m.match_id ?? m.id;
+    if (!matchId) continue;
+
+    const bankIds = (m.bank_ids || m.bank_lines || []);
+    const glIds = (m.gl_ids || m.gl_lines || []);
+
+    const g = ensureGroup(matchId);
+    for (const b of bankIds) {
+      g.bankIds.add(String(b));
+      mapAddSet(bankToMatchIds, b, matchId);
+    }
+    for (const gl of glIds) {
+      g.glIds.add(String(gl));
+      mapAddSet(glToMatchIds, gl, matchId);
+    }
+  }
+
+  // Ingest OLD pairs format
+  for (const p of matchPairs) {
+    if (!p) continue;
+    addRelation(p.match_id, p.bank_id, p.gl_id);
+  }
 
   function ensureTick(el) {
     if (!el) return;
@@ -34,132 +94,150 @@
     }
   }
 
-  function setMatchedUI(bankId, glId, matchId) {
-    const bankEl = byId(`bank-${bankId}`);
-    const glEl = byId(`gl-${glId}`);
-    if (!bankEl || !glEl) return;
+  function markMatched(el, matchId) {
+    if (!el) return;
+    el.classList.add("is-matched");
+    ensureTick(el);
 
-    bankEl.classList.add("is-matched");
-    glEl.classList.add("is-matched");
+    // store one or more match ids (comma separated)
+    const cur = (el.dataset.matchIds || "")
+      .split(",")
+      .map(s => s.trim())
+      .filter(Boolean);
+    if (!cur.includes(String(matchId))) cur.push(String(matchId));
+    el.dataset.matchIds = cur.join(",");
+  }
 
-    bankEl.dataset.matchId = matchId;
-    glEl.dataset.matchId = matchId;
-
-    bankEl.dataset.matchedWith = glId;  // bank -> gl
-    glEl.dataset.matchedWith = bankId;  // gl -> bank
-
-    ensureTick(bankEl);
-    ensureTick(glEl);
+  function applyMatchedUIFromMaps() {
+    for (const [matchId, grp] of matchIdToGroup.entries()) {
+      for (const b of grp.bankIds) markMatched(byId(`bank-${b}`), matchId);
+      for (const g of grp.glIds) markMatched(byId(`gl-${g}`), matchId);
+    }
   }
 
   function clearHover() {
     document.querySelectorAll(".is-hover-pair").forEach(el => el.classList.remove("is-hover-pair"));
   }
 
-  function highlightPair(el) {
+  function highlightByMatchIds(matchIds) {
     clearHover();
+    if (!matchIds || matchIds.size === 0) return;
 
-    const id = el.dataset.id;
+    for (const mid of matchIds) {
+      const grp = matchIdToGroup.get(String(mid));
+      if (!grp) continue;
+
+      for (const b of grp.bankIds) byId(`bank-${b}`)?.classList.add("is-hover-pair");
+      for (const g of grp.glIds) byId(`gl-${g}`)?.classList.add("is-hover-pair");
+    }
+  }
+
+  function highlightPair(el) {
+    const id = el?.dataset?.id;
     if (!id) return;
 
     if (el.classList.contains("bank-line")) {
-      const rel = bankToGl.get(String(id));
-      if (!rel) return;
-      byId(`bank-${id}`)?.classList.add("is-hover-pair");
-      byId(`gl-${rel.glId}`)?.classList.add("is-hover-pair");
+      highlightByMatchIds(bankToMatchIds.get(String(id)) || new Set());
     } else if (el.classList.contains("gl-line")) {
-      const rel = glToBank.get(String(id));
-      if (!rel) return;
-      byId(`gl-${id}`)?.classList.add("is-hover-pair");
-      byId(`bank-${rel.bankId}`)?.classList.add("is-hover-pair");
+      highlightByMatchIds(glToMatchIds.get(String(id)) || new Set());
     }
   }
 
   // Initialize already-matched UI (✓ + matched class)
-  for (const p of matchPairs) {
-    setMatchedUI(String(p.bank_id), String(p.gl_id), String(p.match_id));
-  }
+  applyMatchedUIFromMaps();
 
   // --------------------------
-  // Drag: GL -> Bank
+  // Multi-select (click) matching
   // --------------------------
 
-let selectedBank = new Set();
-let selectedGl = new Set();
+  let selectedBank = new Set();
+  let selectedGl = new Set();
 
-function toggleSelect(el, set) {
-  const id = String(el.dataset.id);
-  if (set.has(id)) {
-    set.delete(id);
-    el.classList.remove("is-selected");
-  } else {
-    set.add(id);
-    el.classList.add("is-selected");
+  function toggleSelect(el, set) {
+    const id = String(el.dataset.id);
+    if (set.has(id)) {
+      set.delete(id);
+      el.classList.remove("is-selected");
+    } else {
+      set.add(id);
+      el.classList.add("is-selected");
+    }
   }
-}
 
-document.querySelectorAll(".bank-line").forEach(el => {
-  el.addEventListener("click", () => toggleSelect(el, selectedBank));
-});
-
-document.querySelectorAll(".gl-line").forEach(el => {
-  el.addEventListener("click", () => toggleSelect(el, selectedGl));
-});
-
-// match button
-document.getElementById("match-btn").addEventListener("click", () => {
-  if (!selectedBank.size || !selectedGl.size) {
-    alert("Vælg mindst én bankpost og mindst én finanspost");
-    return;
-  }
-  createMatchMulti([...selectedBank], [...selectedGl]);
-});
-
-function createMatchMulti(bankIds, glIds) {
-  fetch(window.MATCH_CREATE_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-CSRFToken": csrftoken },
-    body: JSON.stringify({
-      bank_line_ids: bankIds.map(Number),
-      gl_line_ids: glIds.map(Number),
-    }),
-  })
-  .then(async r => ({ okHttp: r.ok, data: await r.json().catch(() => null) }))
-  .then(({ okHttp, data }) => {
-    if (!data) return alert("Teknisk fejl");
-    if (data.error === "amount_mismatch") {
-      alert(`Beløb stemmer ikke:\nBank: ${data.bank_amount}\nFinans: ${data.gl_amount}`);
-      return;
-    }
-    if (data.error === "already_matched") {
-      const what = data.kind === "bank" ? "Bankpost" : "Finanspost";
-      alert(`${what} er allerede afstemt og kan ikke matches igen.`);
-      return;
-    }
-    if (!okHttp || !data.ok) return alert("Kunne ikke oprette match");
-
-    // ✅ markér alle involverede linjer som matched (✓ osv.)
-    for (const b of (data.bank_lines || [])) {
-      const el = document.getElementById(`bank-${b}`);
-      el?.classList.add("is-matched");
-      ensureTick(el);
-    }
-
-    for (const g of (data.gl_lines || [])) {
-      const el = document.getElementById(`gl-${g}`);
-      el?.classList.add("is-matched");
-      ensureTick(el);
-    }
-
-    // ryd selection
-    document.querySelectorAll(".is-selected").forEach(x => x.classList.remove("is-selected"));
-    selectedBank.clear();
-    selectedGl.clear();
-
-    // (valgfrit) opdater matches-listen i bunden uden reload (append row)
+  document.querySelectorAll(".bank-line").forEach(el => {
+    el.addEventListener("click", () => toggleSelect(el, selectedBank));
   });
-}
 
+  document.querySelectorAll(".gl-line").forEach(el => {
+    el.addEventListener("click", () => toggleSelect(el, selectedGl));
+  });
+
+  const matchBtn = document.getElementById("match-btn");
+  if (matchBtn) {
+    matchBtn.addEventListener("click", () => {
+      if (!selectedBank.size || !selectedGl.size) {
+        alert("Vælg mindst én bankpost og mindst én finanspost");
+        return;
+      }
+      createMatchMulti([...selectedBank], [...selectedGl]);
+    });
+  }
+
+  function createMatchMulti(bankIds, glIds) {
+    fetch(window.MATCH_CREATE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": csrftoken },
+      body: JSON.stringify({
+        bank_line_ids: bankIds.map(Number),
+        gl_line_ids: glIds.map(Number),
+      }),
+    })
+      .then(async r => ({ okHttp: r.ok, data: await r.json().catch(() => null) }))
+      .then(({ okHttp, data }) => {
+        if (!data) return alert("Teknisk fejl");
+
+        if (data.error === "amount_mismatch") {
+          alert(`Beløb stemmer ikke:\nBank: ${data.bank_amount}\nFinans: ${data.gl_amount}`);
+          return;
+        }
+        if (data.error === "already_matched") {
+          const what = data.kind === "bank" ? "Bankpost" : "Finanspost";
+          alert(`${what} er allerede afstemt og kan ikke matches igen.`);
+          return;
+        }
+        if (!okHttp || !data.ok) return alert("Kunne ikke oprette match");
+
+        const matchId = String(data.match_id || "");
+        const bankLines = data.bank_lines || [];
+        const glLines = data.gl_lines || [];
+
+        // Update maps so hover-highlighting works without reload
+        const grp = ensureGroup(matchId);
+        for (const b of bankLines) {
+          grp.bankIds.add(String(b));
+          mapAddSet(bankToMatchIds, b, matchId);
+          markMatched(byId(`bank-${b}`), matchId);
+        }
+        for (const g of glLines) {
+          grp.glIds.add(String(g));
+          mapAddSet(glToMatchIds, g, matchId);
+          markMatched(byId(`gl-${g}`), matchId);
+        }
+
+        // clear selection UI
+        document.querySelectorAll(".is-selected").forEach(x => x.classList.remove("is-selected"));
+        selectedBank.clear();
+        selectedGl.clear();
+      })
+      .catch(err => {
+        console.error(err);
+        alert("Teknisk fejl");
+      });
+  }
+
+  // --------------------------
+  // Drag: GL -> Bank (single)
+  // --------------------------
 
   // GL lines are draggable
   document.querySelectorAll(".gl-line").forEach(glEl => {
@@ -175,7 +253,7 @@ function createMatchMulti(bankIds, glIds) {
       glEl.classList.remove("dragging");
     });
 
-    // Hover highlight (only if matched)
+    // Hover highlight
     glEl.addEventListener("mouseenter", () => highlightPair(glEl));
     glEl.addEventListener("mouseleave", clearHover);
   });
@@ -205,72 +283,85 @@ function createMatchMulti(bankIds, glIds) {
 
       const glLineId = data.gl_line_id;
       const bankLineId = bankEl.dataset.id;
-
       if (!glLineId || !bankLineId) return;
 
       createMatch(bankLineId, glLineId);
     });
 
-    // Hover highlight (only if matched)
+    // Hover highlight
     bankEl.addEventListener("mouseenter", () => highlightPair(bankEl));
     bankEl.addEventListener("mouseleave", clearHover);
   });
 
-function createMatch(bankLineId, glLineId) {
-  fetch(window.MATCH_CREATE_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-CSRFToken": csrftoken,
-    },
-    body: JSON.stringify({
-      bank_line_id: bankLineId,
-      gl_line_id: glLineId,
-    }),
-  })
-    .then(async (r) => {
-      // Parse JSON even if status is 400
-      let data = null;
-      try {
-        data = await r.json();
-      } catch {
-        data = null;
-      }
-      return { okHttp: r.ok, status: r.status, data };
+  function createMatch(bankLineId, glLineId) {
+    fetch(window.MATCH_CREATE_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": csrftoken,
+      },
+      body: JSON.stringify({
+        bank_line_id: bankLineId,
+        gl_line_id: glLineId,
+      }),
     })
-    .then(({ okHttp, data }) => {
-      if (!data) {
-        alert("Teknisk fejl: ugyldigt svar fra server");
-        return;
-      }
+      .then(async (r) => {
+        let data = null;
+        try {
+          data = await r.json();
+        } catch {
+          data = null;
+        }
+        return { okHttp: r.ok, status: r.status, data };
+      })
+      .then(({ okHttp, data }) => {
+        if (!data) {
+          alert("Teknisk fejl: ugyldigt svar fra server");
+          return;
+        }
 
-      // Business-level error from backend (e.g. amount mismatch)
-      if (data.error === "amount_mismatch") {
-        alert(`Beløb stemmer ikke:\nBank: ${data.bank_amount}\nFinans: ${data.gl_amount}`);
-        return;
-      }
+        if (data.error === "amount_mismatch") {
+          alert(`Beløb stemmer ikke:\nBank: ${data.bank_amount}\nFinans: ${data.gl_amount}`);
+          return;
+        }
+        if (data.error === "already_matched") {
+          const what = data.kind === "bank" ? "Bankpost" : "Finanspost";
+          alert(`${what} er allerede afstemt og kan ikke matches igen.`);
+          return;
+        }
 
-      // Generic failure
-      if (!okHttp || !data.ok) {
-        alert("Kunne ikke oprette match");
-        return;
-      }
+        if (!okHttp || !data.ok) {
+          alert("Kunne ikke oprette match");
+          return;
+        }
 
-      // Success
-      const matchId = String(data.match_id || "");
+        const matchId = String(data.match_id || "");
+        const bankLines = data.bank_lines || [String(bankLineId)];
+        const glLines = data.gl_lines || [String(glLineId)];
 
-      bankToGl.set(String(bankLineId), { glId: String(glLineId), matchId });
-      glToBank.set(String(glLineId), { bankId: String(bankLineId), matchId });
+        // Update maps + UI
+        const grp = ensureGroup(matchId);
+        for (const b of bankLines) {
+          grp.bankIds.add(String(b));
+          mapAddSet(bankToMatchIds, b, matchId);
+          markMatched(byId(`bank-${b}`), matchId);
+        }
+        for (const g of glLines) {
+          grp.glIds.add(String(g));
+          mapAddSet(glToMatchIds, g, matchId);
+          markMatched(byId(`gl-${g}`), matchId);
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+        alert("Teknisk fejl ved match");
+      });
+  }
 
-      setMatchedUI(String(bankLineId), String(glLineId), matchId);
-    })
-    .catch((err) => {
-      console.error(err);
-      alert("Teknisk fejl ved match");
-    });
-}
+  // --------------------------
+  // Unmatch (reload after delete)
+  // --------------------------
 
-  // Unmatch (keep your existing behavior: reload after delete)
   document.querySelectorAll(".unmatch-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       if (!confirm("Fjern dette match?")) return;
