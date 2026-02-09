@@ -1,0 +1,20 @@
+{% if doc %}
+  {% with primary=doc.attachments.all.0 %}
+    {% if primary %}
+      {% with url=primary.file.url %}
+        {% if url|lower|slice:"-4:" == ".pdf" %}
+        <iframe id="kf-main-preview-frame"
+                src="{% url 'inbox:attachment-view' primary.id %}"
+                style="width:100%; height: calc(100vh - 220px); border:1px solid #ddd; border-radius:10px; background:#fff;">
+        </iframe>
+        {% else %}
+          <img id="kf-main-preview-img" src="{{ url }}" style="max-width:100%; height:auto; border:1px solid #ddd; border-radius:10px; background:#fff;">
+        {% endif %}
+      {% endwith %}
+    {% else %}
+      <div style="padding:12px;">No attachment.</div>
+    {% endif %}
+  {% endwith %}
+{% else %}
+  <div style="padding:12px;">No selection.</div>
+{% endif %}

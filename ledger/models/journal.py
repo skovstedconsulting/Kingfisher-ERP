@@ -15,7 +15,7 @@ class Journal(models.Model):
         POSTED = "posted", "Posted"
 
     entity = models.ForeignKey("core.Entity", on_delete=models.CASCADE, related_name="journals")
-    state = FSMField(default=State.DRAFT, choices=State.choices, protected=True)
+    state = FSMField(default=State.DRAFT, choices=State.choices, protected=True, editable=False)
 
     number = models.CharField(max_length=40, blank=True, default="")
     date = models.DateField()

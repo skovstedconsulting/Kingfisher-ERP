@@ -2,7 +2,8 @@ from django import forms
 from django.utils import timezone
 
 from documents.models import SalesDocument, SalesLine
-
+from core.models import IsoCurrencyCodes
+from core.models import VatCode
 
 class SalesDocumentForm(forms.ModelForm):
     """
@@ -39,6 +40,12 @@ class SalesDocumentForm(forms.ModelForm):
 
             # if you have per-entity currency rules, filter here; otherwise leave as-is
             # self.fields["currency"].queryset = self.fields["currency"].queryset.filter(...)
+            
+            # 🔒 limit currencies to entity if needed
+            self.fields["currency"].queryset = IsoCurrencyCodes.objects.all()
+
+            if not self.instance.pk and entity:
+                self.initial.setdefault("currency", entity.base_currency_id)
 
     def save(self, commit=True):
         obj = super().save(commit=False)
@@ -74,6 +81,16 @@ class SalesLineForm(forms.ModelForm):
         if entity is not None and "item" in self.fields:
             qs = self.fields["item"].queryset
             self.fields["item"].queryset = qs.filter(entity=entity)
+
+        # ✅ VAT dropdown: show only VAT name
+        if "vat_code" in self.fields:
+            # optional: if VatCode has entity FK, filter it too
+            qs = self.fields["vat_code"].queryset
+            if entity is not None and hasattr(VatCode, "entity_id"):
+                qs = qs.filter(entity=entity)
+            self.fields["vat_code"].queryset = qs
+
+            self.fields["vat_code"].label_from_instance = lambda obj: obj.name
 
 
 SalesLineFormSet = forms.inlineformset_factory(

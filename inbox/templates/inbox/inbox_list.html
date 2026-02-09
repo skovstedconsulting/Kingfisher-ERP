@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div style="display:flex; gap:14px; align-items:stretch; height: calc(100vh - 140px);">
+
+  <!-- LEFT: list -->
+  <div style="width: 420px; overflow:auto; border:1px solid #ddd; border-radius:10px; background:#fff;">
+    <div style="padding:10px; border-bottom:1px solid #eee; position:sticky; top:0; background:#fff; z-index:2;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <strong>Inbox</strong>
+        <a href="#" onclick="document.getElementById('create-box').style.display='block'; return false;">+ New</a>
+      </div>
+
+      <div id="kf-drop-create" data-create-url="{% url 'inbox:create' %}" style="margin-top:10px; padding:10px; border:1px dashed #bbb; border-radius:10px; font-size:13px; opacity:.85;">
+        Drag & drop files here to create a new inbox row
+        <div style="margin-top:6px;">
+          <input id="kf-file-create" type="file" multiple>
+        </div>
+      </div>
+
+      <div id="create-box" style="display:none; margin-top:10px; border:1px solid #eee; padding:10px; border-radius:10px;">
+        <form method="post" action="{% url 'inbox:create' %}" enctype="multipart/form-data">
+          {% csrf_token %}
+          <div>
+            <label>Type</label><br>
+            {{ create_form.doc_type }}
+          </div>
+          <div style="margin-top:8px;">
+            <label>Title</label><br>
+            {{ create_form.title }}
+          </div>
+          <div style="margin-top:8px;">
+            <label>Vendor</label><br>
+            {{ create_form.vendor_name }}
+          </div>
+          <div style="margin-top:8px;">
+            <label>Invoice no.</label><br>
+            {{ create_form.invoice_no }}
+          </div>
+          <div style="margin-top:8px;">
+            <label>Total</label><br>
+            {{ create_form.total_amount }} {{ create_form.currency }}
+          </div>
+          <div style="margin-top:8px;">
+            <label>Attach files</label><br>
+            <input type="file" name="file" multiple>
+          </div>
+          <div style="margin-top:10px; display:flex; gap:8px;">
+            <button type="submit">Create</button>
+            <button type="button" onclick="document.getElementById('create-box').style.display='none';">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    {% for d in docs %}
+      {% with primary=d.attachments.all.0 %}
+      <div
+        class="kf-inbox-row"
+        data-doc-id="{{ d.id }}"
+        data-primary-url="{% if primary %}{{ primary.file.url }}{% endif %}"
+        data-primary-attachment-id="{% if primary %}{{ primary.id }}{% endif %}"
+        style="padding:10px; border-bottom:1px solid #eee; cursor:pointer; {% if selected and d.id == selected.id %}background:#f5f7ff;{% endif %}"
+      >
+        <div style="font-weight:600;">{{ d.title|default:"(no title)" }}</div>
+        <div style="opacity:.8; font-size:13px;">
+          {{ d.created_at|date:"Y-m-d H:i" }} · {{ d.doc_type }} · {{ d.status }}
+        </div>
+        <div style="opacity:.85; font-size:13px;">
+          {{ d.vendor_name }} {% if d.total_amount %}· {{ d.total_amount }} {{ d.currency }}{% endif %}
+        </div>
+      </div>
+      {% endwith %}
+    {% empty %}
+      <div style="padding:12px;">No documents yet.</div>
+    {% endfor %}
+  </div>
+
+  <!-- RIGHT: preview + inline edit + actions -->
+  <div style="flex:1; overflow:hidden; border:1px solid #ddd; border-radius:10px; background:#fff; display:flex; flex-direction:column;">
+    <div style="padding:10px; border-bottom:1px solid #eee; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      {% if selected %}
+        <strong>#{{ selected.id }}</strong>
+        <span style="opacity:.8;">{{ selected.doc_type }} · {{ selected.status }}</span>
+
+        <form method="post" action="{% url 'inbox:delete' selected.id %}" style="display:inline;">
+          {% csrf_token %}
+          <button type="submit" onclick="return confirm('Delete this inbox row?');">Delete</button>
+        </form>
+
+        <form method="post" action="{% url 'inbox:convert-purchase-invoice' selected.id %}" style="display:inline;">
+          {% csrf_token %}
+          <button type="submit">Convert → Purchase invoice</button>
+        </form>
+
+        <form method="post" action="{% url 'inbox:extract' selected.id %}" style="display:inline;">
+          {% csrf_token %}
+          <button type="submit">Send to extraction</button>
+        </form>
+
+        <button type="button" id="kf-toggle-preview">Hide preview</button>
+        <button type="button" id="kf-popout-btn">Pop out</button>
+      {% else %}
+        <strong>Select a row</strong>
+      {% endif %}
+    </div>
+
+    {% if selected %}
+    <div style="display:flex; gap:14px; padding:12px; overflow:hidden; flex:1;">
+      <!-- Inline edit -->
+      <div style="width: 360px; overflow:auto; border:1px solid #eee; border-radius:10px; padding:12px;">
+        <form method="post" action="{% url 'inbox:edit' selected.id %}">
+          {% csrf_token %}
+
+          <div style="margin-bottom:10px;">
+            <label style="display:block; font-size:13px; opacity:.8;">Type</label>
+            <select name="doc_type">
+              {% for val, lbl in selected.DocType.choices %}
+                <option value="{{ val }}" {% if selected.doc_type == val %}selected{% endif %}>{{ lbl }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div style="margin-bottom:10px;">
+            <label style="display:block; font-size:13px; opacity:.8;">Title</label>
+            <input name="title" value="{{ selected.title }}" style="width:100%;">
+          </div>
+
+          <div style="margin-bottom:10px;">
+            <label style="display:block; font-size:13px; opacity:.8;">Vendor</label>
+            <input name="vendor_name" value="{{ selected.vendor_name }}" style="width:100%;">
+          </div>
+
+          <div style="margin-bottom:10px;">
+            <label style="display:block; font-size:13px; opacity:.8;">Invoice no.</label>
+            <input name="invoice_no" value="{{ selected.invoice_no }}" style="width:100%;">
+          </div>
+
+          <div style="margin-bottom:10px;">
+            <label style="display:block; font-size:13px; opacity:.8;">Doc date</label>
+            <input type="date" name="doc_date" value="{{ selected.doc_date|date:'Y-m-d' }}" style="width:100%;">
+          </div>
+
+          <div style="margin-bottom:10px;">
+            <label style="display:block; font-size:13px; opacity:.8;">Total</label>
+            <div style="display:flex; gap:8px;">
+              <input name="total_amount" value="{{ selected.total_amount|default_if_none:'' }}" style="width:100%;">
+              <input name="currency" value="{{ selected.currency }}" style="width:90px;">
+            </div>
+          </div>
+
+          <div style="margin-bottom:10px;">
+            <label style="display:block; font-size:13px; opacity:.8;">Note</label>
+            <textarea name="note" rows="5" style="width:100%;">{{ selected.note }}</textarea>
+          </div>
+
+          <button type="submit">Save</button>
+        </form>
+
+        <hr>
+
+        <!-- Drag & drop attach -->
+        <div id="kf-drop-attach" style="padding:10px; border:1px dashed #bbb; border-radius:10px; font-size:13px; opacity:.85;">
+          Drag & drop files here to attach to this document
+          <div style="margin-top:6px;">
+            <input id="kf-file-attach" type="file" multiple>
+          </div>
+        </div>
+
+        {% if selected.attachments.all %}
+          <div style="margin-top:12px;">
+            <div style="font-weight:600; margin-bottom:6px;">Attachments (click to preview)</div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              {% for a in selected.attachments.all %}
+                <button type="button"
+                        class="kf-attachment-btn {% if forloop.first %}kf-selected-attachment{% endif %}"
+                        data-attachment-id="{{ a.id }}"
+                        data-url="{{ a.file.url }}"
+                        data-view-url="{% url 'inbox:attachment-view' a.id %}"
+                        style="text-align:left; padding:6px 8px; border:1px solid #eee; border-radius:8px; background:#fff; cursor:pointer;">
+                  {% if a.is_primary %}<strong>(primary)</strong> {% endif %}
+                  {{ a.original_name|default:a.file.name }}
+                </button>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Preview -->
+      <div id="kf-preview-wrap" style="flex:1; overflow:auto; background:#fafafa; border:1px solid #eee; border-radius:10px; padding:12px;">
+        {% include "inbox/preview.html" with doc=selected %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script src="{% static 'inbox/inbox.js' %}"></script>
+{% endblock %}

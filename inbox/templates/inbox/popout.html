@@ -1,0 +1,88 @@
+  <!doctype html>
+  <html>
+  <head>
+    <meta charset="utf-8">
+    <title>Incoming document</title>
+  </head>
+  <body style="margin:0; background:#111; color:#fff; font-family:system-ui;">
+    <div style="padding:12px; border-bottom:1px solid rgba(255,255,255,.15);">
+      <div style="font-weight:700;">Incoming document</div>
+      <div style="opacity:.85; font-size:13px; margin-top:6px; line-height:1.4;">
+        <div><span style="opacity:.7;">Document ID:</span> {{ att.document_id }}</div>
+        <div><span style="opacity:.7;">Title:</span> {{ att.document.title|default:"" }}</div>
+        <div><span style="opacity:.7;">Type:</span> {{ att.document.doc_type }}</div>
+        <div><span style="opacity:.7;">Vendor:</span> {{ att.document.vendor_name|default:"" }}</div>
+        <div><span style="opacity:.7;">Invoice no.:</span> {{ att.document.invoice_no|default:"" }}</div>
+        <div><span style="opacity:.7;">Doc date:</span> {{ att.document.doc_date|date:"Y-m-d"|default:"" }}</div>
+        <div><span style="opacity:.7;">Total:</span> {{ att.document.total_amount|default:"" }} {{ att.document.currency }}</div>
+      </div>
+    </div>
+
+    <div id="kf-popout-view" style="padding:12px;">
+    {% with url=att.file.url %}
+      {% if url|lower|slice:"-4:" == ".pdf" %}
+        <iframe id="kf-main-preview-frame"
+        
+                src="{% url 'inbox:attachment-view' att.id %}"
+                style="width:100%; height: calc(100vh - 220px); border:1px solid #ddd; border-radius:10px; background:#fff;">
+        </iframe>
+      {% else %}
+        <img id="kf-popout-img" src="{{ url }}" style="display:block; margin:0 auto; max-width:100%; height:auto; border-radius:10px; background:#fff;">
+      {% endif %}
+    {% endwith %}
+    </div>
+
+<script>
+  const ATT_VIEW_URL = "{% url 'inbox:attachment-view' att.id %}";
+  const ATT_FILE_URL = "{{ att.file.url|escapejs }}";
+  const bc = new BroadcastChannel("kf_inbox_preview");
+
+  function setViewer(fileUrl, viewUrl) {
+    const view = document.getElementById("kf-popout-view");
+    if (!view) return;
+
+    // Prefer viewUrl to decide PDF – it’s your inline endpoint
+    const isPdf = !!viewUrl || ((fileUrl || "").toLowerCase().endsWith(".pdf"));
+
+    view.innerHTML = "";
+
+    if (isPdf) {
+      const iframe = document.createElement("iframe");
+      iframe.id = "kf-popout-frame";
+      iframe.src = viewUrl || fileUrl || ATT_VIEW_URL;
+      iframe.style.width = "100%";
+      iframe.style.height = "calc(100vh - 220px)";
+      iframe.style.border = "0";
+      iframe.style.background = "#fff";
+      iframe.style.borderRadius = "10px";
+      view.appendChild(iframe);
+    } else {
+      const img = document.createElement("img");
+      img.id = "kf-popout-img";
+      img.src = fileUrl || ATT_FILE_URL;
+      img.style.display = "block";
+      img.style.margin = "0 auto";
+      img.style.maxWidth = "100%";
+      img.style.height = "auto";
+      img.style.borderRadius = "10px";
+      img.style.background = "#fff";
+      view.appendChild(img);
+    }
+  }
+
+  // IMPORTANT: show something immediately (don’t rely on broadcast message)
+  setViewer(ATT_FILE_URL, ATT_VIEW_URL);
+
+  bc.onmessage = (e) => {
+    const msg = e.data || {};
+    if (msg.type === "show_attachment") {
+      setViewer(msg.url || ATT_FILE_URL, msg.view_url || ATT_VIEW_URL);
+      document.title = msg.title || document.title;
+    }
+  };
+
+  bc.postMessage({ type: "popout_ready" });
+</script>
+
+</body>
+  </html>

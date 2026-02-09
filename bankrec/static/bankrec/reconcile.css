@@ -1,0 +1,123 @@
+.bank-line,
+.gl-line {
+  padding: 8px 10px;
+  border-bottom: 1px solid #eee;
+  font-size: 13px;
+  display: grid;
+  grid-template-columns: 90px 1fr 100px;
+  gap: 8px;
+}
+
+/* Cursor regler */
+.bank-line {
+  cursor: default; /* ingen cursor ændring */
+}
+
+.gl-line {
+  cursor: grab;
+}
+
+.gl-line.dragging {
+  cursor: grabbing;
+  opacity: 0.5;
+}
+
+/* Drop hover på bank-line */
+.bank-line.drag-over {
+  background: #e6f2ff;
+  outline: 2px dashed #3b82f6;
+}
+
+/* Matchet state + plads til ✓ */
+.bank-line.is-matched,
+.gl-line.is-matched {
+  position: relative;
+  padding-right: 26px;
+}
+
+.tick {
+  position: absolute;
+  right: 10px;
+  top: 8px;
+  font-weight: 700;
+  opacity: 0.9;
+}
+
+/* Hover-markering af begge poster i et match */
+.bank-line.is-hover-pair,
+.gl-line.is-hover-pair {
+  background: #fff7ed;
+  outline: 1px solid rgba(0,0,0,.08);
+}
+
+
+/* Bank: ingen cursor ændring */
+.bank-line { cursor: default; }
+
+/* GL: draggable */
+.gl-line { cursor: grab; }
+.gl-line.dragging { cursor: grabbing; opacity: 0.5; }
+
+/* Drop hint på bank */
+.bank-line.drag-over {
+  background: #e6f2ff;
+  outline: 2px dashed #3b82f6;
+}
+
+/* Matchet ✓ */
+.bank-line.is-matched,
+.gl-line.is-matched {
+  position: relative;
+  padding-right: 26px; /* plads til ✓ */
+}
+
+.tick {
+  position: absolute;
+  right: 10px;
+  top: 8px;
+  font-weight: 700;
+  opacity: 0.9;
+}
+
+/* Hover markering af par */
+.bank-line.is-hover-pair,
+.gl-line.is-hover-pair {
+  background: #fff7ed;
+  outline: 1px solid rgba(0,0,0,.08);
+}
+
+
+/* Ensure our page area can use full width */
+.bankrec-page {
+  width: 100%;
+}
+
+/* Force two-column layout */
+.bankrec-page .bankrec-container {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: stretch;
+  gap: 16px;
+  width: 100%;
+}
+
+/* Each column takes half */
+.bankrec-page .bankrec-column {
+  flex: 1 1 0;
+  min-width: 0;            /* important so grid text can ellipsis */
+}
+
+/* If you want full height without fighting base layout, avoid 100vh here */
+.bankrec-page .bankrec-list {
+  overflow-y: auto;
+}
+
+/* Optional: make columns same height in viewport under header/nav */
+.bankrec-page .bankrec-container {
+  min-height: 420px;
+}
+
+.is-selected {
+  outline: 2px solid rgba(59,130,246,.8);
+  background: #eef6ff;
+}

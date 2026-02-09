@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+
+<link rel="stylesheet" href="{% static 'bankrec/reconcile.css' %}">
+
+<script>
+  window.MATCH_CREATE_URL = "{% url 'bankrec:match-create' session.id %}";
+  window.MATCH_DELETE_URL = "{% url 'bankrec:match-delete' session.id %}";
+</script>
+
+<h1 style="margin:16px 16px 0 16px;"> Bankafstemning – {{ session.staging.statement_id }} </h1>
+
+<div style="margin: 0 16px 12px 16px; display:flex; gap:10px; align-items:center;">
+  <button id="match-btn" type="button">Match valgte</button>
+  <span style="opacity:.75; font-size:13px;">Klik for at vælge flere bankposter og finansposter, og tryk Match.</span>
+</div>
+
+<div class="bankrec-page">
+<div class="bankrec-container">
+
+  <!-- LEFT: Bank statement lines -->
+  <div class="bankrec-column">
+    <h2>Bankposter ({{ bank_lines|length }})</h2>
+    <div class="bankrec-list">
+      {% for line in bank_lines %}
+        <div class="bank-line" data-id="{{ line.id }}" id="bank-{{ line.id }}">
+          <div class="date">{{ line.booking_date }}</div>
+          <div class="text">
+            {{ line.text }}
+            {% if line.reference %}<span style="opacity:.65;"> — {{ line.reference }}</span>{% endif %}
+          </div>
+          <div class="amount">{{ line.amount }}</div>
+        </div>
+      {% empty %}
+        <div style="padding:10px; color:#666;">Ingen umatchede bankposter.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- RIGHT: GL (JournalLine on bank account) -->
+  <div class="bankrec-column">
+    <h2>Finans (bankkonto) ({{ gl_lines|length }})</h2>
+    <div class="bankrec-list">
+      {% for l in gl_lines %}
+        <div class="gl-line" draggable="true" data-id="{{ l.id }}" id="gl-{{ l.id }}">
+          <div class="date">{{ l.journal.date }}</div>
+          <div class="text">
+            {{ l.description }}
+            <span style="opacity:.65;">— Journal {{ l.journal.number|default:l.journal_id }}</span>
+          </div>
+          <div class="amount">
+            {% if l.debit_base > 0 %}{{ l.debit_base }}{% else %}-{{ l.credit_base }}{% endif %}
+          </div>
+        </div>
+      {% empty %}
+        <div style="padding:10px; color:#666;">Ingen umatchede GL-linjer på bankkontoen.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- MATCHES -->
+<div class="matches">
+  <h2 style="margin:0 0 8px 0; font-size:14px;">Matches</h2>
+
+  {% for m in matches %}
+    <div class="match-row">
+      <div>
+        <strong>#{{ m.id }}</strong>
+        <span style="opacity:.75;">
+          {% for bl in m.bank_lines.all %}
+            [{{ bl.booking_date }} {{ bl.amount }}]
+          {% endfor %}
+          ⇄
+          {% for gl in m.gl_lines.all %}
+            [{{ gl.journal.date }}
+              {% if gl.debit_base > 0 %} {{ gl.debit_base }}{% else %} -{{ gl.credit_base }}{% endif %}
+            ]
+          {% endfor %}
+        </span>
+      </div>
+
+      <button class="unmatch-btn" type="button" data-match-id="{{ m.id }}">Unmatch</button>
+    </div>
+  {% empty %}
+    <div style="color:#666;">Ingen matches endnu.</div>
+  {% endfor %}
+</div>
+
+<script id="match-map" type="application/json">
+{
+  "pairs": [
+    {% for m in matches %}
+      {% for bl in m.bank_lines.all %}
+        {% for gl in m.gl_lines.all %}
+          {"match_id": {{ m.id }}, "bank_id": {{ bl.id }}, "gl_id": {{ gl.id }}}
+          {% if not forloop.last or not forloop.parentloop.last or not forloop.parentloop.parentloop.last %},{% endif %}
+        {% endfor %}
+      {% endfor %}
+    {% endfor %}
+  ]
+}
+</script>
+
+<script src="{% static 'bankrec/reconcile.js' %}"></script>
+
+{% endblock %}
