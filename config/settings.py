@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     "simple_history",
     "django_fsm",
     "django_fsm_log",
+    "django_q",
 
     # Local apps
     "core",
