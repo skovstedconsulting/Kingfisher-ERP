@@ -21,7 +21,7 @@ Goal: Accounting correctness and auditability.
 - [x] Import job to get ISO currencies and ISO countries
 - [x] Import job to get Danish Government Chart of account of 2026
 - [x] Import job to get dayly exchange rates
-- [ ] Notes and attachments
+- [x] Notes and attachments
 - [x] Number Series
 - [x] Automatic change document status on posting
 
