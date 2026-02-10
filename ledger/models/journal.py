@@ -34,13 +34,11 @@ class Journal(models.Model):
         return f"Journal {self.number or self.pk} ({self.state})"
 
     def allocate_number_if_missing(self):
-        """Allocate journal number just-in-time (to avoid gaps)."""
         if self.number:
             return
         if not self.entity.default_series_journal_id:
             raise ValueError("Entity.default_series_journal is required.")
         self.number = self.entity.default_series_journal.allocate()
-        self.save(update_fields=["number"])
 
     def assert_balanced(self):
         """Validate that sum(debit_base) == sum(credit_base)."""
@@ -50,17 +48,16 @@ class Journal(models.Model):
         if d != c:
             raise ValueError(f"Journal not balanced. Debit={d} Credit={c}")
 
+    
     @transition(field=state, source=State.DRAFT, target=State.POSTED)
     def post(self, by_user=None):
-        """Post the journal.
-
-        - allocate number (optional)
-        - ensure balanced
-        - stamp posted fields
-        """
         self.allocate_number_if_missing()
         self.assert_balanced()
 
         self.posted_at = timezone.now()
         self.posted_by = by_user
-        self.save(update_fields=["number", "posted_at", "posted_by"])
+
+        #self.save(update_fields=["state", "number", "posted_at", "posted_by"])
+
+        # IMPORTANT: don't include update_fields with "state" when protected=True
+        self.save()

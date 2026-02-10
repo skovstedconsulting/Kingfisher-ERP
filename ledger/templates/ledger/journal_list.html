@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>Journals</h1>
+
+<div style="margin: 10px 0;">
+  <a href="{% url 'ledger:journal-create' %}">+ New journal</a>
+</div>
+
+<form method="get" style="display:flex; gap:10px; align-items:end; flex-wrap:wrap;">
+  <div>
+    <label>State</label><br>
+    <select name="state">
+      <option value="all" {% if state == "all" %}selected{% endif %}>All</option>
+      <option value="draft" {% if state == "draft" %}selected{% endif %}>Draft ({{ count_draft }})</option>
+      <option value="posted" {% if state == "posted" %}selected{% endif %}>Posted ({{ count_posted }})</option>
+    </select>
+  </div>
+
+  <div>
+    <label>Day</label><br>
+    <input type="date" name="day" value="{{ day }}">
+  </div>
+
+  <div>
+    <button type="submit">Filter</button>
+    <a href="{% url 'ledger:journal-list' %}" style="margin-left:8px;">Reset</a>
+  </div>
+</form>
+
+{% if day %}
+  <hr>
+  <form method="post" action="{% url 'ledger:journal-post-day' %}">
+    {% csrf_token %}
+    <input type="hidden" name="day" value="{{ day }}">
+    <button type="submit">Post all drafts for {{ day }}</button>
+  </form>
+{% endif %}
+
+
+<hr>
+
+<table border="1" cellpadding="6" cellspacing="0" style="width:100%; border-collapse:collapse;">
+  <thead>
+    <tr>
+      <th>Number</th>
+      <th>Date</th>
+      <th>Reference</th>
+      <th>State</th>
+      <th>Posted</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for j in journals %}
+      <tr>
+<td>
+  <a href="{% url 'ledger:journal-detail' j.pk %}">
+    {{ j.number|default:j.pk }}
+  </a>
+  {% if j.state == "draft" %}
+    · <a href="{% url 'ledger:journal-edit' j.pk %}">Edit</a>
+  {% endif %}
+</td>
+        <td>{{ j.date }}</td>
+
+        <td>{{ j.reference }}</td>
+        <td>{{ j.state }}</td>
+        <td>
+          {% if j.posted_at %}
+            {{ j.posted_at }}{% if j.posted_by %} ({{ j.posted_by }}){% endif %}
+          {% else %}
+            -
+          {% endif %}
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="5">No journals.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}

@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>{{ journal }}</h1>
+
+<div style="margin-bottom:12px;">
+  <a href="{% url 'ledger:journal-list' %}">← Back to journals</a>
+</div>
+
+<div style="margin: 10px 0;">
+  <div><strong>Date:</strong> {{ journal.date }}</div>
+  <div><strong>Reference:</strong> {{ journal.reference }}</div>
+  <div><strong>Number:</strong> {{ journal.number|default:"(not allocated yet)" }}</div>
+  <div><strong>State:</strong> {{ journal.state }}</div>
+  {% if journal.posted_at %}
+    <div><strong>Posted:</strong> {{ journal.posted_at }}{% if journal.posted_by %} by {{ journal.posted_by }}{% endif %}</div>
+  {% endif %}
+</div>
+
+{% if journal.state == "draft" %}
+  <a href="{% url 'ledger:journal-edit' journal.pk %}">
+    ✏️ Edit journal
+  </a>
+{% endif %}
+
+<hr>
+
+<h3>Totals (base)</h3>
+<div><strong>Debit:</strong> {{ debit_total }}</div>
+<div><strong>Credit:</strong> {{ credit_total }}</div>
+<div>
+  <strong>Balanced:</strong>
+  {% if is_balanced %}✅{% else %}❌{% endif %}
+</div>
+
+{% if journal.state == "draft" %}
+  <form method="post" style="margin: 16px 0;">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="post">
+    <button type="submit" {% if not is_balanced %}disabled{% endif %}>
+      Post journal
+    </button>
+    {% if not is_balanced %}
+      <span style="margin-left:10px; opacity:.75;">Journal must be balanced to post.</span>
+    {% endif %}
+  </form>
+{% endif %}
+
+<hr>
+
+<h2>Lines</h2>
+
+<table border="1" cellpadding="6" cellspacing="0" style="width:100%; border-collapse:collapse;">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Account</th>
+      <th>Description</th>
+      <th>Currency</th>
+      <th>FX rate</th>
+      <th>Debit (tx)</th>
+      <th>Credit (tx)</th>
+      <th>Debit (base)</th>
+      <th>Credit (base)</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for l in lines %}
+      <tr>
+        <td>{{ l.id }}</td>
+        <td>{{ l.account }}</td>
+        <td>{{ l.description }}</td>
+        <td>{{ l.currency|default:"-" }}</td>
+        <td>{{ l.fx_rate|default:"-" }}</td>
+        <td style="text-align:right;">{{ l.debit_tx }}</td>
+        <td style="text-align:right;">{{ l.credit_tx }}</td>
+        <td style="text-align:right;">{{ l.debit_base }}</td>
+        <td style="text-align:right;">{{ l.credit_base }}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="9">No lines.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}

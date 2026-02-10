@@ -1,0 +1,380 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>
+  {% if mode == "edit" %}
+    Edit journal {{ journal.number|default:journal.pk }}
+  {% else %}
+    New journal
+  {% endif %}
+</h1>
+
+<form method="post" id="journal-form">
+  {% csrf_token %}
+
+  {% if form.errors or form.non_field_errors %}
+    <div style="border:1px solid #c62828; padding:10px; margin:10px 0;">
+      <strong>Journal errors</strong>
+      {{ form.non_field_errors }}
+      {{ form.errors }}
+    </div>
+  {% endif %}
+
+  {% if formset.non_form_errors %}
+    <div style="border:1px solid #c62828; padding:10px; margin:10px 0;">
+      <strong>Line errors</strong>
+      {{ formset.non_form_errors }}
+    </div>
+  {% endif %}
+
+  <div id="journal-meta"
+       data-base-currency-id="{{ request.user.profile.entity.base_currency_id|default:'' }}">
+  </div>
+
+  <fieldset style="margin-bottom:16px;">
+    <legend>Journal</legend>
+    {{ form.as_p }}
+  </fieldset>
+
+  <fieldset>
+    <legend>Lines</legend>
+
+    {{ formset.management_form }}
+
+    <table border="1" cellpadding="6" cellspacing="0"
+           style="width:100%; border-collapse:collapse;"
+           id="lines-table">
+      <thead>
+        <tr>
+          <th>Account</th>
+          <th>Description</th>
+          <th>Currency</th>
+          <th>FX</th>
+          <th>Debit tx</th>
+          <th>Credit tx</th>
+          <th>Debit base</th>
+          <th>Credit base</th>
+          <th>Delete</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for f in formset.forms %}
+          {# include hidden fields (id, etc.) once per form if your formset has them #}
+          {% for h in f.hidden_fields %}{{ h }}{% endfor %}
+
+          <tr class="line-form">
+            <td>
+              {{ f.account }}
+              {{ f.account.errors }}
+            </td>
+            <td>
+              {{ f.description }}
+              {{ f.description.errors }}
+            </td>
+            <td>
+              {{ f.currency }}
+              {{ f.currency.errors }}
+            </td>
+            <td>
+              {{ f.fx_rate }}
+              {{ f.fx_rate.errors }}
+            </td>
+            <td>
+              {{ f.debit_tx }}
+              {{ f.debit_tx.errors }}
+            </td>
+            <td>
+              {{ f.credit_tx }}
+              {{ f.credit_tx.errors }}
+            </td>
+            <td>
+              {{ f.debit_base }}
+              {{ f.debit_base.errors }}
+            </td>
+            <td>
+              {{ f.credit_base }}
+              {{ f.credit_base.errors }}
+            </td>
+            <td>
+              {{ f.DELETE }}
+              {{ f.DELETE.errors }}
+            </td>
+          </tr>
+
+          {% if f.non_field_errors %}
+            <tr>
+              <td colspan="9" style="color:#c62828;">
+                {{ f.non_field_errors }}
+              </td>
+            </tr>
+          {% endif %}
+        {% endfor %}
+      </tbody>
+
+      <tfoot>
+        <tr>
+          <td colspan="9" style="padding:10px;">
+            <div id="balance-footer" style="display:flex; gap:16px; align-items:center;">
+              <div><strong>Debit (base):</strong> <span id="sum-debit">0.00</span></div>
+              <div><strong>Credit (base):</strong> <span id="sum-credit">0.00</span></div>
+              <div><strong>Diff:</strong> <span id="sum-diff">0.00</span></div>
+              <div id="balance-pill"
+                   style="padding:4px 10px; border-radius:999px; border:1px solid #ccc;">
+                Not balanced
+              </div>
+            </div>
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <button type="button" id="add-line-btn" style="margin-top:10px;">
+      + Add new line
+    </button>
+  </fieldset>
+
+  <div style="margin-top:16px;">
+    <button type="submit">
+      {% if mode == "edit" %}Save{% else %}Create{% endif %}
+    </button>
+
+    {% if mode == "edit" %}
+      <a href="{% url 'ledger:journal-detail' journal.pk %}" style="margin-left:10px;">
+        Cancel
+      </a>
+    {% else %}
+      <a href="{% url 'ledger:journal-list' %}" style="margin-left:10px;">
+        Cancel
+      </a>
+    {% endif %}
+  </div>
+</form>
+
+<!-- Empty form template -->
+<table style="display:none;">
+  <tbody>
+    <tr id="empty-form">
+      {% with f=formset.empty_form %}
+        {% for h in f.hidden_fields %}{{ h }}{% endfor %}
+        <td>{{ f.account }}</td>
+        <td>{{ f.description }}</td>
+        <td>{{ f.currency }}</td>
+        <td>{{ f.fx_rate }}</td>
+        <td>{{ f.debit_tx }}</td>
+        <td>{{ f.credit_tx }}</td>
+        <td>{{ f.debit_base }}</td>
+        <td>{{ f.credit_base }}</td>
+        <td>{{ f.DELETE }}</td>
+      {% endwith %}
+    </tr>
+  </tbody>
+</table>
+
+<script>
+(function () {
+  const meta = document.getElementById("journal-meta");
+  const baseCurrencyId = (meta?.dataset?.baseCurrencyId || "").trim(); // string
+
+  const addBtn = document.getElementById("add-line-btn");
+  const table = document.getElementById("lines-table");
+  const tbody = table.querySelector("tbody");
+
+  const totalForms = document.getElementById("id_lines-TOTAL_FORMS");
+  const emptyFormRow = document.getElementById("empty-form");
+
+  const sumDebitEl = document.getElementById("sum-debit");
+  const sumCreditEl = document.getElementById("sum-credit");
+  const sumDiffEl = document.getElementById("sum-diff");
+  const pillEl = document.getElementById("balance-pill");
+
+  function q2(n) {
+    const x = Number.isFinite(n) ? n : 0;
+    return Math.round(x * 100) / 100;
+  }
+
+  function parseDec(val) {
+    // Accept both 1.23 and 1,23 and also thousand separators like 1.234,56
+    const raw = (val || "").toString().trim();
+    if (!raw) return 0;
+
+    // If it contains a comma, treat comma as decimal separator and remove dots as thousands sep.
+    // Else, treat dot as decimal separator and remove commas as thousands sep.
+    let s;
+    if (raw.includes(",")) {
+      s = raw.replace(/\./g, "").replace(",", ".");
+    } else {
+      s = raw.replace(/,/g, "");
+    }
+
+    const n = parseFloat(s);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function format2(n) {
+    return q2(n).toFixed(2);
+  }
+
+  function getRowIndexFromEl(el) {
+    const id = el?.id || "";
+    const m = id.match(/^id_lines-(\d+)-/);
+    return m ? m[1] : null;
+  }
+
+  function getField(rowIndex, name) {
+    return document.getElementById(`id_lines-${rowIndex}-${name}`);
+  }
+
+  function rowIsMarkedDeleted(rowIndex) {
+    const del = getField(rowIndex, "DELETE");
+    return !!del && del.checked;
+  }
+
+  function lineCurrencyIsBase(rowIndex) {
+    const cur = getField(rowIndex, "currency");
+    const curVal = (cur && (cur.value || "").toString().trim()) || "";
+    if (!curVal) return true;
+    if (!baseCurrencyId) return false;
+    return curVal === baseCurrencyId;
+  }
+
+  function autoCalcBaseForRow(rowIndex) {
+    if (rowIndex == null) return;
+    if (rowIsMarkedDeleted(rowIndex)) return;
+    if (!lineCurrencyIsBase(rowIndex)) return;
+
+    const debitTx = getField(rowIndex, "debit_tx");
+    const creditTx = getField(rowIndex, "credit_tx");
+    const debitBase = getField(rowIndex, "debit_base");
+    const creditBase = getField(rowIndex, "credit_base");
+    if (!debitTx || !creditTx || !debitBase || !creditBase) return;
+
+    const dTx = parseDec(debitTx.value);
+    const cTx = parseDec(creditTx.value);
+
+    debitBase.value = dTx ? format2(dTx) : "0.00";
+    creditBase.value = cTx ? format2(cTx) : "0.00";
+  }
+
+  function computeTotals() {
+    const n = parseInt(totalForms.value, 10) || 0;
+
+    let d = 0, c = 0;
+    for (let i = 0; i < n; i++) {
+      if (rowIsMarkedDeleted(i)) continue;
+      d += parseDec(getField(i, "debit_base")?.value);
+      c += parseDec(getField(i, "credit_base")?.value);
+    }
+
+    d = q2(d); c = q2(c);
+    const diff = q2(d - c);
+
+    sumDebitEl.textContent = format2(d);
+    sumCreditEl.textContent = format2(c);
+    sumDiffEl.textContent = format2(diff);
+
+    const balanced = Math.abs(diff) < 0.005;
+
+    if (balanced) {
+      pillEl.textContent = "Balanced";
+      pillEl.style.borderColor = "#2e7d32";
+      pillEl.style.color = "#2e7d32";
+      pillEl.style.background = "rgba(46, 125, 50, .08)";
+    } else {
+      pillEl.textContent = "Not balanced";
+      pillEl.style.borderColor = "#c62828";
+      pillEl.style.color = "#c62828";
+      pillEl.style.background = "rgba(198, 40, 40, .08)";
+    }
+  }
+
+  function addLine() {
+    const formIndex = parseInt(totalForms.value, 10) || 0;
+    const newRow = emptyFormRow.cloneNode(true);
+
+    newRow.removeAttribute("id");
+    newRow.classList.add("line-form");
+    newRow.innerHTML = newRow.innerHTML.replace(/__prefix__/g, formIndex);
+
+    tbody.appendChild(newRow);
+    totalForms.value = formIndex + 1;
+
+    const first = document.getElementById(`id_lines-${formIndex}-account`);
+    if (first) first.focus();
+
+    computeTotals();
+  }
+
+  addBtn.addEventListener("click", addLine);
+
+  table.addEventListener("input", function (e) {
+    const el = e.target;
+    const rowIndex = getRowIndexFromEl(el);
+    if (rowIndex == null) return;
+
+    const id = el.id || "";
+    if (id.endsWith("-debit_tx") || id.endsWith("-credit_tx") || id.endsWith("-currency")) {
+      autoCalcBaseForRow(rowIndex);
+    }
+
+    if (
+      id.endsWith("-debit_base") || id.endsWith("-credit_base") ||
+      id.endsWith("-debit_tx") || id.endsWith("-credit_tx") ||
+      id.endsWith("-currency")
+    ) {
+      computeTotals();
+    }
+  });
+
+  table.addEventListener("change", function (e) {
+    const el = e.target;
+
+    if ((el.id || "").endsWith("-DELETE")) {
+      computeTotals();
+    }
+
+    const rowIndex = getRowIndexFromEl(el);
+    if (rowIndex != null && (el.id || "").endsWith("-currency")) {
+      autoCalcBaseForRow(rowIndex);
+      computeTotals();
+    }
+  });
+
+  table.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter") return;
+    const el = e.target;
+    if (!el || !el.id) return;
+
+    const rowIndexStr = getRowIndexFromEl(el);
+    if (rowIndexStr == null) return;
+
+    const rowIndex = parseInt(rowIndexStr, 10);
+    const n = (parseInt(totalForms.value, 10) || 0);
+    if (n === 0) return;
+
+    const isLastRow = (rowIndex === n - 1);
+    const isLastField = el.id.endsWith("-credit_base") || el.id.endsWith("-DELETE");
+
+    if (isLastRow && isLastField) {
+      e.preventDefault();
+      addLine();
+    }
+  });
+
+  (function init() {
+    const n = parseInt(totalForms.value, 10) || 0;
+    for (let i = 0; i < n; i++) {
+      if (lineCurrencyIsBase(i)) {
+        const d0 = parseDec(getField(i, "debit_base")?.value);
+        const c0 = parseDec(getField(i, "credit_base")?.value);
+        if (q2(d0) === 0 && q2(c0) === 0) {
+          autoCalcBaseForRow(i);
+        }
+      }
+    }
+    computeTotals();
+  })();
+})();
+</script>
+
+{% endblock %}
