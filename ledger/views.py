@@ -10,9 +10,36 @@ from datetime import date as date_type
 from django.db import models, transaction
 from .forms import JournalForm, JournalLineFormSet
 from ledger.models.journal_line import JournalLine
+from django.views.decorators.http import require_POST
+from django.http import JsonResponse
+from ledger.models.journal import Journal
+from inbox.models import Attachment  # the generic one
+from django.contrib.contenttypes.models import ContentType
+
+@login_required
+@require_POST
+def journal_attachment_upload(request, journal_id: int):
+    entity = request.user.profile.entity
+    journal = get_object_or_404(Journal, pk=journal_id, entity=entity)
+
+    f = request.FILES.get("file")
+    if not f:
+        return JsonResponse({"ok": False, "error": "No file provided"}, status=400)
+
+    ct = ContentType.objects.get_for_model(Journal)
+
+    att = Attachment.objects.create(
+        content_type=ct,
+        object_id=journal.id,
+        file=f,
+        original_name=getattr(f, "name", ""),
+        content_type_guess=getattr(f, "content_type", "") or "",
+        is_primary=False,
+    )
+
+    return JsonResponse({"ok": True, "id": att.id, "url": att.file.url})
 
 
-# views.py
 @login_required
 @require_http_methods(["GET", "POST"])
 def journal_edit(request, pk: int):

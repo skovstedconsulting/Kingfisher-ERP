@@ -10,6 +10,8 @@ class InboxDocumentForm(forms.ModelForm):
             "vendor_name",
             "invoice_no",
             "doc_date",
+            "gl_account",
+            "contra_account",
             "total_amount",
             "currency",
             "note",

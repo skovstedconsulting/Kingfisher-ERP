@@ -1,12 +1,12 @@
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
-
-try:
-    from core.models import Entity
-except Exception:  # pragma: no cover
-    Entity = None  # type: ignore
-
+from core.models import Account, Entity
+from core.models.iso_codes import IsoCurrencyCodes
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.fields import GenericRelation
+import os
 
 class InboxDocument(models.Model):
     class DocType(models.TextChoices):
@@ -35,13 +35,29 @@ class InboxDocument(models.Model):
     note = models.TextField(blank=True, default="")
 
     # Common header fields (optional)
-    vendor_name = models.CharField(max_length=255, blank=True, default="")
+    vendor_name = models.ForeignKey("masterdata.Creditor", on_delete=models.SET_NULL, null=True, blank=True)
     invoice_no = models.CharField(max_length=100, blank=True, default="")
     doc_date = models.DateField(null=True, blank=True)
+
+    gl_account = models.ForeignKey(
+        "core.Account",
+        on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name="inbox_documents_as_gl",
+        )
+    contra_account = models.ForeignKey(
+        "core.Account",
+        on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name="inbox_documents_as_contra",
+    )
+
     total_amount = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
-    currency = models.CharField(max_length=3, blank=True, default="DKK")
+    currency = models.ForeignKey("core.IsoCurrencyCodes", on_delete=models.PROTECT, null=True, blank=True)
 
     converted_purchase_invoice_id = models.BigIntegerField(null=True, blank=True)
+    
+    attachments = GenericRelation("inbox.Attachment", related_query_name="inbox_document")
 
     def __str__(self):
         t = self.title or self.vendor_name or "(incoming doc)"
@@ -49,21 +65,71 @@ class InboxDocument(models.Model):
 
 
 def inbox_upload_path(instance, filename: str) -> str:
-    entity_id = instance.document.entity_id if hasattr(instance.document, "entity_id") else instance.document.entity
-    return f"inbox/{entity_id}/{instance.document_id}/{filename}"
+    """
+    Generic upload path for attachments.
+
+    Works for:
+      - InboxDocument (entity on document)
+      - Journal (entity on journal)
+      - Anything else with .entity or .entity_id
+    """
+
+    target = getattr(instance, "content_object", None)
+
+    # Fallback: if you're still using old InboxAttachment in some places
+    if target is None and hasattr(instance, "document"):
+        target = instance.document
+
+    # entity id resolution
+    entity_id = None
+    if target is not None:
+        # If target has entity FK
+        if hasattr(target, "entity_id") and target.entity_id:
+            entity_id = target.entity_id
+        elif hasattr(target, "entity") and target.entity:
+            # could be int or model
+            entity_id = getattr(target.entity, "id", target.entity)
+
+    if entity_id is None:
+        entity_id = "unknown"
+
+    # group by date for sanity
+    dt = timezone.now()
+    yyyy = dt.strftime("%Y")
+    mm = dt.strftime("%m")
+
+    # keep filename safe-ish
+    base = os.path.basename(filename)
+
+    # Optional: include target type for readability
+    ct = getattr(instance, "content_type", None)
+    model_label = getattr(ct, "model", "object") if ct else "object"
+
+    obj_id = getattr(instance, "object_id", None) or "unknown"
+
+    return f"entity_{entity_id}/{model_label}/{obj_id}/{yyyy}/{mm}/{base}"
 
 
-class InboxAttachment(models.Model):
-    document = models.ForeignKey(InboxDocument, on_delete=models.CASCADE, related_name="attachments")
+class Attachment(models.Model):
+    # Generic link: can attach to InboxDocument, Journal, JournalLine, etc.
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveBigIntegerField(db_index=True)
+    content_object = GenericForeignKey("content_type", "object_id")
+
     uploaded_at = models.DateTimeField(default=timezone.now)
 
     file = models.FileField(upload_to=inbox_upload_path)
     original_name = models.CharField(max_length=255, blank=True, default="")
-    content_type = models.CharField(max_length=100, blank=True, default="")
-    is_primary = models.BooleanField(default=True)
+    content_type_guess = models.CharField(max_length=100, blank=True, default="")
+    is_primary = models.BooleanField(default=False)
+        
+    class Meta:
+        indexes = [
+            models.Index(fields=["content_type", "object_id"]),
+        ]
 
     def __str__(self):
-        return f"Attachment#{self.pk} doc={self.document_id}"
+        return f"Attachment#{self.pk} obj={self.content_type_id}:{self.object_id}"
 
 
 class InboxExtractionJob(models.Model):

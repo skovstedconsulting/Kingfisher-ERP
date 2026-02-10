@@ -8,6 +8,60 @@
     New journal
   {% endif %}
 </h1>
+{% if mode == "edit" %}
+  <div id="journal-dropzone"
+       data-upload-url="{% url 'ledger:journal-attachment-upload' journal.id %}"
+       style="border:2px dashed #bbb; padding:14px; border-radius:10px; margin:12px 0; background:#fafafa;">
+    <div style="display:flex; justify-content:space-between; gap:12px; align-items:center;">
+      <div>
+        <div style="font-weight:700;">Attachments</div>
+        <div style="opacity:.8; font-size:13px; margin-top:4px;">
+          Drag files here (images/PDF) or click to choose
+        </div>
+      </div>
+      <button type="button" id="dz-pick"
+              style="padding:8px 12px; border:1px solid #ccc; border-radius:8px; background:#fff;">
+        Choose files
+      </button>
+    </div>
+
+    <input id="dz-input" type="file" multiple accept="image/*,application/pdf"
+           style="display:none;" />
+
+  <div id="dz-list" style="margin-top:10px; font-size:13px;">
+    {% if journal.attachments.all %}
+      {% for a in journal.attachments.all %}
+        <div class="att-row"
+            style="display:flex; justify-content:space-between; gap:12px; padding:6px 8px; border:1px solid #eee; border-radius:8px; background:#fff; margin-top:6px;">
+          <div>
+            <a href="{{ a.file.url }}" target="_blank" rel="noopener">
+              <strong>{{ a.original_name|default:"Attachment" }}</strong>
+            </a>
+            {% if a.content_type_guess %}
+              <span style="opacity:.6; font-size:12px; margin-left:6px;">{{ a.content_type_guess }}</span>
+            {% endif %}
+            <span style="opacity:.6; font-size:12px; margin-left:6px;">
+              {{ a.uploaded_at|date:"Y-m-d H:i" }}
+            </span>
+          </div>
+          <div style="white-space:nowrap; opacity:.85;">
+            Uploaded
+          </div>
+        </div>
+      {% empty %}
+        <div style="opacity:.7;">No attachments yet.</div>
+      {% endfor %}
+    {% else %}
+      <div style="opacity:.7;">No attachments yet.</div>
+    {% endif %}
+  </div>
+
+  </div>
+{% else %}
+  <div style="border:1px solid #ddd; padding:12px; border-radius:10px; margin:12px 0; background:#fffbe6;">
+    <strong>Attachments:</strong> Save/Create the journal first, then you can drop files on the header.
+  </div>
+{% endif %}
 
 <form method="post" id="journal-form">
   {% csrf_token %}
@@ -171,8 +225,155 @@
   </tbody>
 </table>
 
+
 <script>
 (function () {
+  // --- Dropzone uploader (header) ---
+  const dz = document.getElementById("journal-dropzone");
+  if (dz) {
+    const uploadUrl = dz.dataset.uploadUrl;
+    const pickBtn = document.getElementById("dz-pick");
+    const fileInput = document.getElementById("dz-input");
+    const list = document.getElementById("dz-list");
+
+    function getCookie(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(";").shift();
+      return "";
+    }
+    const csrftoken = getCookie("csrftoken");
+
+    function humanSize(bytes) {
+      const b = Number(bytes || 0);
+      if (b < 1024) return `${b} B`;
+      if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+      if (b < 1024 * 1024 * 1024) return `${(b / (1024 * 1024)).toFixed(1)} MB`;
+      return `${(b / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+    }
+
+    function addRow(file, statusText) {
+      const row = document.createElement("div");
+      row.style.display = "flex";
+      row.style.justifyContent = "space-between";
+      row.style.gap = "12px";
+      row.style.padding = "6px 8px";
+      row.style.border = "1px solid #eee";
+      row.style.borderRadius = "8px";
+      row.style.background = "#fff";
+      row.style.marginTop = "6px";
+
+      const left = document.createElement("div");
+      left.innerHTML = `<strong>${file.name}</strong> <span style="opacity:.7;">(${humanSize(file.size)})</span>`;
+
+      const right = document.createElement("div");
+      right.textContent = statusText || "Queued";
+      right.style.whiteSpace = "nowrap";
+      right.style.opacity = ".85";
+
+      row.appendChild(left);
+      row.appendChild(right);
+      list.prepend(row);
+
+      return { row, right };
+    }
+
+    async function uploadOne(file) {
+      const ui = addRow(file, "Uploading…");
+
+      const fd = new FormData();
+      fd.append("file", file);
+
+      // Optional: you can add metadata fields your endpoint supports
+      // fd.append("kind", "receipt");
+      // fd.append("title", "");
+
+      try {
+        const resp = await fetch(uploadUrl, {
+          method: "POST",
+          headers: {
+            "X-CSRFToken": csrftoken,
+          },
+          body: fd,
+        });
+
+        if (!resp.ok) {
+          const text = await resp.text();
+          ui.right.textContent = `Error (${resp.status})`;
+          ui.right.style.color = "#c62828";
+          console.error("Upload failed:", resp.status, text);
+          return;
+        }
+
+        const data = await resp.json();
+        if (!data.ok) {
+          ui.right.textContent = "Error";
+          ui.right.style.color = "#c62828";
+          console.error("Upload failed:", data);
+          return;
+        }
+
+        ui.right.textContent = "Uploaded";
+        ui.right.style.color = "#2e7d32";
+
+        // Optionally add a link
+        if (data.url) {
+          const a = document.createElement("a");
+          a.href = data.url;
+          a.target = "_blank";
+          a.textContent = "open";
+          a.style.marginLeft = "10px";
+          a.style.fontSize = "12px";
+          ui.row.querySelector("div:last-child").appendChild(a);
+        }
+      } catch (err) {
+        ui.right.textContent = "Error";
+        ui.right.style.color = "#c62828";
+        console.error(err);
+      }
+    }
+
+    async function handleFiles(files) {
+      const arr = Array.from(files || []);
+      if (!arr.length) return;
+
+      // sequential upload (safer for big PDFs); change to Promise.all for parallel
+      for (const f of arr) {
+        await uploadOne(f);
+      }
+    }
+
+    // click-to-pick
+    pickBtn?.addEventListener("click", () => fileInput?.click());
+    fileInput?.addEventListener("change", (e) => handleFiles(e.target.files));
+
+    // drag & drop styling
+    function setActive(active) {
+      dz.style.borderColor = active ? "#1976d2" : "#bbb";
+      dz.style.background = active ? "rgba(25,118,210,.06)" : "#fafafa";
+    }
+
+    dz.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      setActive(true);
+    });
+    dz.addEventListener("dragleave", (e) => {
+      e.preventDefault();
+      setActive(false);
+    });
+    dz.addEventListener("drop", (e) => {
+      e.preventDefault();
+      setActive(false);
+      if (e.dataTransfer?.files) handleFiles(e.dataTransfer.files);
+    });
+
+    // allow clicking on empty area too
+    dz.addEventListener("click", (e) => {
+      if (e.target === dz) fileInput?.click();
+    });
+  }
+
+
   const meta = document.getElementById("journal-meta");
   const baseCurrencyId = (meta?.dataset?.baseCurrencyId || "").trim(); // string
 

@@ -83,4 +83,39 @@
   </tbody>
 </table>
 
+<hr>
+
+<h3>Attachments</h3>
+
+{% with atts=journal.attachments.all %}
+  {% if atts %}
+    <div style="display:flex; flex-direction:column; gap:8px; margin:10px 0;">
+      {% for a in atts %}
+        <div style="display:flex; justify-content:space-between; gap:12px; padding:8px 10px; border:1px solid #eee; border-radius:10px; background:#fff;">
+          <div>
+            <a href="{{ a.file.url }}" target="_blank" rel="noopener">
+              <strong>{{ a.original_name|default:a.file.name }}</strong>
+            </a>
+            {% if a.content_type_guess %}
+              <span style="opacity:.6; font-size:12px; margin-left:6px;">{{ a.content_type_guess }}</span>
+            {% endif %}
+            <span style="opacity:.6; font-size:12px; margin-left:6px;">
+              {{ a.uploaded_at|date:"Y-m-d H:i" }}
+            </span>
+          </div>
+
+          <div style="white-space:nowrap;">
+            <a href="{{ a.file.url }}" target="_blank" rel="noopener" style="font-size:12px;">Open</a>
+            {# If you want inline PDF viewer route like inbox:attachment-view, uncomment: #}
+            {# · <a href="{% url 'inbox:attachment-view' a.id %}" target="_blank" style="font-size:12px;">View</a> #}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div style="opacity:.7; margin:10px 0;">No attachments.</div>
+  {% endif %}
+{% endwith %}
+
+
 {% endblock %}

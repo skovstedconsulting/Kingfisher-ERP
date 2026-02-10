@@ -38,6 +38,18 @@
             <label>Invoice no.</label><br>
             {{ create_form.invoice_no }}
           </div>
+
+          <div style="margin-top:8px;">
+            <label>GL Account</label><br>
+            {{ create_form.gl_account }}
+          </div>
+          <div style="margin-top:8px;">
+            <label>Contra Account</label><br>
+            {{ create_form.contra_account }}
+          </div>
+
+
+
           <div style="margin-top:8px;">
             <label>Total</label><br>
             {{ create_form.total_amount }} {{ create_form.currency }}

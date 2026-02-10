@@ -4,6 +4,7 @@ from django.utils import timezone
 from django_fsm import FSMField, transition
 from simple_history.models import HistoricalRecords
 from decimal import Decimal
+from django.contrib.contenttypes.fields import GenericRelation
 
 class Journal(models.Model):
     """Accounting journal.
@@ -25,6 +26,8 @@ class Journal(models.Model):
     posted_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
 
     history = HistoricalRecords()
+
+    attachments = GenericRelation("inbox.Attachment", related_query_name="journal")
 
     class Meta:
         ordering = ("-date", "-id")

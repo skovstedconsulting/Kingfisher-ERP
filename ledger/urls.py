@@ -11,4 +11,9 @@ urlpatterns = [
     path("journals/post-day/", views.journal_post_all_drafts_for_day, name="journal-post-day"),
 
     path("journals/new/", views.journal_create, name="journal-create"),
+    path(
+        "journals/<int:journal_id>/attachments/upload/",
+        views.journal_attachment_upload,
+        name="journal-attachment-upload",
+    ),
 ]
