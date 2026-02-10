@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>Trial balance</h1>
+
+{% if lines %}
+  <table border="1" cellpadding="6" cellspacing="0" style="width:100%; border-collapse:collapse;">
+    <thead>
+      <tr>
+        <th>Account</th>
+        <th>Name</th>
+        <th>Debit</th>
+        <th>Credit</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in lines %}
+        <tr>
+          <td>{{ row.account__number }}</td>
+          <td>{{ row.account__name }}</td>
+
+          <td style="text-align:right;">{{ row.debit_total }}</td>
+          <td style="text-align:right;">{{ row.credit_total }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h3>Totals (base)</h3>
+  <div><strong>Debit:</strong> {{ debit_total }}</div>
+  <div><strong>Credit:</strong> {{ credit_total }}</div>
+{% else %}
+  <p>No transactions found.</p>
+{% endif %}
+
+{% endblock %}

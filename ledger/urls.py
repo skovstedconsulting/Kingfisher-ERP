@@ -16,4 +16,5 @@ urlpatterns = [
         views.journal_attachment_upload,
         name="journal-attachment-upload",
     ),
+    path("trial-balance/", views.trial_balance, name="trial-balance"),
 ]

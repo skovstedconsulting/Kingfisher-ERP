@@ -92,6 +92,5 @@ Goal: Ecosystem over monolith.
 
 Goal: Alternative UIs beyond Django Admin.
 
-- [ ] API-first UI
 - [x] Simple user UI
 

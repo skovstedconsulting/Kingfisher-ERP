@@ -17,6 +17,30 @@ from inbox.models import Attachment  # the generic one
 from django.contrib.contenttypes.models import ContentType
 
 @login_required
+@require_http_methods(["GET"])
+def trial_balance(request):
+    """
+    Simple trial balance view: sums of debits and credits per account.
+    Adjust the queryset if you want to filter by date, etc.
+    """
+    entity = request.user.profile.entity
+
+    # Get all posted journal lines for the entity
+    lines = (
+        JournalLine.objects
+        .filter(journal__entity=entity, journal__state=Journal.State.POSTED)
+        .select_related("account")
+        .values("account__number", "account__name")
+        .annotate(
+            debit_total=models.Sum("debit_base"),
+            credit_total=models.Sum("credit_base"),
+        )
+        .order_by("account__number")
+    )
+
+    return render(request, "ledger/trial_balance.html", {"lines": lines})
+
+@login_required
 @require_POST
 def journal_attachment_upload(request, journal_id: int):
     entity = request.user.profile.entity
