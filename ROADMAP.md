@@ -48,9 +48,9 @@ Goal: Operational flows that feed accounting.
 
 Goal: Handle and reconsile bank accounts.
 
-- [ ] Bank accounts, bank transactions
+- [x] Bank accounts, bank transactions
 - [ ] Import transactions
-- [ ] Reconsile bankaccounts
+- [x] Reconsile bankaccounts
 
 ---
 ## Phase 4 — Inventory
