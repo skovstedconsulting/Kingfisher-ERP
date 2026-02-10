@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "ledger",
     "inventory",
     "bankrec",
+    "inbox",
 ]
 
 MIDDLEWARE = [
